@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Portal de vacaciones</title>
+  <link rel="stylesheet" href="vacaciones.css">
+  <link rel="stylesheet" href="periodos.css">
+  <link rel="stylesheet" href="mejoras.css">
+  <link rel="stylesheet" href="correcciones.css">
+  <link rel="stylesheet" href="admin-mejoras.css">
+</head>
+<body>
+  <section class="login-screen" id="login-screen" aria-labelledby="login-title">
+    <form class="login-card" id="login-form">
+      <div class="cedh-logo" aria-label="CEDH">CEDH</div>
+      <p class="eyebrow">Comisión Estatal de los Derechos Humanos</p>
+      <h1 id="login-title">Portal de vacaciones</h1>
+      <p>Ingresa con tu correo institucional.</p>
+      <label>Correo electrónico<input type="email" name="email" autocomplete="username" required placeholder="nombre@cedh.org.mx"></label>
+      <label>Contraseña<input type="password" name="password" autocomplete="current-password" required></label>
+      <p class="login-error hidden" id="login-error" role="alert">El correo o la contraseña no son correctos.</p>
+      <button class="primary login-button">Ingresar</button>
+    </form>
+  </section>
+  <main>
+    <header><div class="brand-mini"><div class="cedh-logo">CEDH</div><div><h1>Portal de vacaciones</h1><p id="welcome"></p></div></div><button class="secondary" id="logout" type="button">Cerrar sesión</button></header>
+    <section class="app-grid"><div>
+      <section id="employee-view" class="card hidden"><h2>Solicitar vacaciones</h2><label>Periodo de vacaciones<select id="period-select"></select></label><p id="policy-message"></p><div class="calendar-nav"><button class="secondary" id="previous" type="button">←</button><strong id="month-label"></strong><button class="secondary" id="next" type="button">→</button></div><div class="calendar" id="calendar"></div><div class="legend"><span><i class="dot"></i> Día elegido</span><span><i class="dot gray"></i> Fin de semana o día fuera del periodo</span></div><div id="selection-info" class="notice"></div><label>Comentario (opcional)<textarea id="request-note" placeholder="Ej. Viaje familiar"></textarea></label><div class="actions"><button class="primary" id="send-request" type="button">Enviar solicitud</button><button class="secondary" id="clear-days" type="button">Limpiar selección</button></div></section>
+      <section id="admin-view" class="card hidden"><h2>Registro de mi área</h2><p id="admin-area-label"></p><div class="admin-tabs" id="admin-tabs"></div><div id="admin-list"></div><h3 class="calendar-heading">Calendario de días aprobados</h3><p class="notice">Los días en verde muestran quién tiene vacaciones aprobadas.</p><div class="calendar" id="admin-calendar"></div></section>
+      <section id="super-view" class="hidden"><section class="card"><h2>Dos periodos de vacaciones</h2><p>Define días y fechas de uso para cada periodo.</p><form id="policy-form"><div class="period-grid"><fieldset><legend>Periodo 1</legend><label>Días por persona<input required min="1" type="number" name="p1days" id="p1-days"></label><label>Desde<input required type="date" name="p1start" id="p1-start"></label><label>Hasta<input required type="date" name="p1end" id="p1-end"></label></fieldset><fieldset><legend>Periodo 2</legend><label>Días por persona<input required min="1" type="number" name="p2days" id="p2-days"></label><label>Desde<input required type="date" name="p2start" id="p2-start"></label><label>Hasta<input required type="date" name="p2end" id="p2-end"></label></fieldset></div><div class="actions"><button class="primary">Guardar ambos periodos</button></div></form><p class="notice" id="policy-summary"></p></section><section class="card super-users"><h2>Días inhábiles y feriados</h2><p>Selecciona un día laborable para marcarlo o quitarlo como inhábil.</p><div class="calendar-nav"><button class="secondary" id="holiday-previous" type="button">←</button><strong id="holiday-month-label"></strong><button class="secondary" id="holiday-next" type="button">→</button></div><div class="calendar" id="holiday-calendar"></div></section><section class="card super-users"><h2>Áreas</h2><form id="add-area"><div class="form-grid"><label>Nombre del área<input required name="area" placeholder="Ej. Visitaduría"></label></div><div class="actions"><button class="primary">Agregar área</button></div></form><div id="areas-list" class="area-list"></div></section><section class="card super-users"><h2>Personas y roles</h2><p>Asigna un solo administrador responsable para cada área.</p><form id="add-user"><div class="form-grid"><label>Nombre<input required name="name" placeholder="Ej. Lucía Martínez"></label><label>Correo electrónico<input required type="email" name="email" placeholder="nombre@cedh.org.mx"></label><label>Contraseña<input required type="password" name="password"></label><label>Rol<select name="role"><option value="employee">Colaborador</option><option value="admin">Administrador</option><option value="super">Superusuario</option></select></label><label>Área<select name="area" id="new-user-area"></select></label></div><div class="actions"><button class="primary">Crear usuario</button></div></form><table class="users-table"><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Área</th><th></th></tr></thead><tbody id="users-list"></tbody></table></section></section>
+    </div><aside class="side"><section class="card"><h2>Resumen</h2><div class="summary"><div class="metric"><span>En espera</span><strong id="pending-count">0</strong></div><div class="metric"><span>Aprobadas</span><strong id="approved-count">0</strong></div><div class="metric"><span>Días restantes</span><strong id="days-count">0</strong></div></div></section><section class="card"><h2>Saldo por periodo</h2><div id="my-balance" class="balance"></div><div id="my-requests"></div></section></aside></section>
+    <button id="reset" type="button" hidden></button>
+  </main>
+  <script src="vacaciones.js"></script>
+  <script src="periodos.js"></script>
+  <script src="mejoras.js"></script>
+  <script src="correcciones.js"></script>
+  <script src="admin-mejoras.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-cloud.js"></script>
+</body></html>

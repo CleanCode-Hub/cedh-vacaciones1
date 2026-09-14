@@ -1,0 +1,1 @@
+.day.pendingday:disabled{background:#f4c64e;color:#563b00;text-decoration:none}.day.pastday:disabled{background:#e3e8ef;color:#8190a3;text-decoration:line-through}.day.holiday:disabled{background:#f3a3ae;color:#701429;text-decoration:none}.holiday-selected{outline:2px solid var(--red);outline-offset:1px}
