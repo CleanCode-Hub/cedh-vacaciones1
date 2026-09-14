@@ -90,8 +90,9 @@ document.getElementById('users-list').addEventListener('click', async event => {
 
 // Las solicitudes se guardan en Supabase para que el administrador del área
 // pueda verlas desde su propia sesión, no solamente en el navegador del colaborador.
-document.getElementById('send-request').onclick = async event => {
-  event.stopImmediatePropagation();
+document.addEventListener('click', async event => {
+  if (!event.target.closest('#send-request')) return;
+  event.preventDefault(); event.stopImmediatePropagation();
   const activePeriod = data.periods.find(item => String(item.id) === String(selectedPeriod)) || data.periods[0];
   const available = Math.max((activePeriod?.days || 0) - periodDays(currentUserId, activePeriod?.id).length, 0);
   if (!chosen.length) return alert('Elige por lo menos un día hábil.');
@@ -108,7 +109,7 @@ document.getElementById('send-request').onclick = async event => {
   chosen = []; document.getElementById('request-note').value = '';
   await showCloudSession();
   alert('Solicitud enviada al administrador de tu área.');
-};
+}, true);
 
 // Operaciones del superusuario que ya persisten en la base de datos.
 document.getElementById('add-area').addEventListener('submit', async event => {
