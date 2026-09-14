@@ -15,12 +15,13 @@ summary = function () {
 };
 
 function renderAdminCalendar(requests) {
-  const now = new Date(), year = now.getFullYear(), monthNumber = now.getMonth(), first = new Date(year,monthNumber,1), offset=(first.getDay()+6)%7, total=new Date(year,monthNumber+1,0).getDate();
-  const namesByDay = {};
-  requests.filter(request => status(request)[1] === 'approved').forEach(request => { const person=data.users.find(item=>item.id===request.userId); request.days.forEach(day => { if (day.slice(0,7) === `${year}-${String(monthNumber+1).padStart(2,'0')}`) (namesByDay[day] ||= []).push(person?.name || 'Persona'); }); });
-  let html=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(day=>`<div class="weekday">${day}</div>`).join('')+'<div class="day empty"></div>'.repeat(offset);
-  for(let day=1;day<=total;day++){const iso=`${year}-${String(monthNumber+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`,names=namesByDay[iso]||[];html+=`<div class="day admin-calendar-day ${names.length?'admin-approved':''}"><strong>${day}</strong>${names.length?`<span class="calendar-names">${names.map(esc).join('<br>')}</span>`:''}</div>`;}
-  $('#admin-calendar').innerHTML=html;
+  const approved = requests.filter(request => status(request)[1] === 'approved');
+  $('#admin-calendar').innerHTML = approved.length
+    ? `<div class="approved-days-list">${approved.map(request => {
+      const person = data.users.find(item => item.id === request.userId);
+      return `<article class="approved-days-item"><strong>${esc(person?.name || 'Colaborador')}</strong><span>${dates(request.days)}</span></article>`;
+    }).join('')}</div>`
+    : '<p class="empty">Aún no hay días aprobados en esta área.</p>';
 }
 
 adminView = function () {
