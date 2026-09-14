@@ -55,7 +55,16 @@ cloud.auth.getSession().then(({ data: { session } }) => { if (session) showCloud
 // Crear y eliminar personas pasa por una función segura del servidor.
 async function manageCloudUser(payload) {
   const { data, error } = await cloud.functions.invoke('manage-user', { body: payload });
-  if (error) throw new Error(error.message || 'No se pudo completar la operación.');
+  if (error) {
+    // Las funciones devuelven el detalle en la respuesta incluso cuando el
+    // navegador solo muestra un error HTTP genérico.
+    let message = error.message || 'No se pudo completar la operación.';
+    try {
+      const detail = await error.context?.json();
+      message = detail?.error || message;
+    } catch (_) {}
+    throw new Error(message);
+  }
   if (data?.error) throw new Error(data.error);
   return data;
 }
