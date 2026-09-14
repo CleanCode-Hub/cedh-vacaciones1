@@ -1,4 +1,4 @@
-
+// Prototipo local: los datos y accesos se guardan solo en este navegador.
 const store='cedh-vacaciones-v4';
 // Datos vacíos de respaldo: los accesos y la información real viven en Supabase.
 const sample={policy:{days:15,start:'2026-01-01',end:'2026-12-31'},areas:[],users:[],requests:[]};

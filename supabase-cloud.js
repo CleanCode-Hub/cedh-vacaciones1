@@ -100,6 +100,3 @@ document.getElementById('policy-form').addEventListener('submit', async event =>
   if (error) return alert(error.message);
   await showCloudSession();
 }, true);
-
-  await showCloudSession();
-}, true);
