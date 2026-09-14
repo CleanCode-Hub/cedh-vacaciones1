@@ -88,6 +88,28 @@ document.getElementById('users-list').addEventListener('click', async event => {
   catch (error) { alert(error.message); }
 }, true);
 
+// Las solicitudes se guardan en Supabase para que el administrador del área
+// pueda verlas desde su propia sesión, no solamente en el navegador del colaborador.
+document.getElementById('send-request').addEventListener('click', async event => {
+  event.stopImmediatePropagation();
+  const activePeriod = data.periods.find(item => String(item.id) === String(selectedPeriod)) || data.periods[0];
+  const available = Math.max((activePeriod?.days || 0) - periodDays(currentUserId, activePeriod?.id).length, 0);
+  if (!chosen.length) return alert('Elige por lo menos un día hábil.');
+  if (chosen.length > available) return alert(`Solo tienes ${available} días restantes.`);
+  const me = user();
+  if (!me?.areaId || !activePeriod) return alert('Tu perfil no tiene área o periodo asignado.');
+  const { data: request, error } = await cloud.from('vacation_requests').insert({
+    employee_id: currentUserId, area_id: me.areaId, period_id: activePeriod.id,
+    note: document.getElementById('request-note').value.trim()
+  }).select().single();
+  if (error) return alert(error.message);
+  const { error: daysError } = await cloud.from('request_days').insert(chosen.map(vacation_date => ({ request_id: request.id, vacation_date })));
+  if (daysError) return alert(daysError.message);
+  chosen = []; document.getElementById('request-note').value = '';
+  await showCloudSession();
+  alert('Solicitud enviada al administrador de tu área.');
+}, true);
+
 // Operaciones del superusuario que ya persisten en la base de datos.
 document.getElementById('add-area').addEventListener('submit', async event => {
   event.preventDefault(); event.stopImmediatePropagation();
