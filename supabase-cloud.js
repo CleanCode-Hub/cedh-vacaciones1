@@ -25,7 +25,7 @@ async function loadCloudData() {
     areas: (areaResult.data || []).map(item => ({ id: item.id, name: item.name })),
     holidays: (holidayResult.data || []).map(item => item.holiday_date),
     users: (profilesResult.data || [profile]).map(item => ({ id: item.id, name: item.full_name, email: item.id === profile.id ? sessionData.user.email : '', role: item.role === 'superuser' ? 'super' : item.role, areaId: item.area_id })),
-    requests: (requestResult.data || []).map(item => ({ id: item.id, userId: item.employee_id, areaId: item.area_id, periodId: item.period_id, days: (item.request_days || []).map(day => day.vacation_date), note: item.note || '', decisions: { [item.reviewed_by || 'pending']: item.status === 'approved' ? 'yes' : item.status === 'rejected' ? 'no' : 'pending' }, log: (item.approval_audit || []).map(audit => ({ adminName: 'Administrador', decision: audit.action === 'approved' ? 'yes' : 'no', date: audit.created_at.slice(0, 10) })), rejectReason: item.rejection_reason || '' }))
+    requests: (requestResult.data || []).map(item => ({ id: item.id, userId: item.employee_id, areaId: item.area_id, periodId: item.period_id, days: (item.request_days || []).map(day => day.vacation_date), note: item.note || '', decisions: { [item.reviewed_by || currentUserId]: item.status === 'approved' ? 'yes' : item.status === 'rejected' ? 'no' : 'pending' }, log: (item.approval_audit || []).map(audit => ({ adminName: 'Administrador', decision: audit.action === 'approved' ? 'yes' : 'no', date: audit.created_at.slice(0, 10) })), rejectReason: item.rejection_reason || '' }))
   };
   currentUserId = id;
   selectedPeriod = data.periods[0]?.id || 1;
@@ -109,6 +109,22 @@ document.addEventListener('click', async event => {
   chosen = []; document.getElementById('request-note').value = '';
   await showCloudSession();
   alert('Solicitud enviada al administrador de tu área.');
+}, true);
+
+// La aprobación queda registrada en la base de datos y se bloquea para el colaborador.
+document.addEventListener('click', async event => {
+  const button = event.target.closest('#admin-list [data-vote]');
+  if (!button) return;
+  event.preventDefault(); event.stopImmediatePropagation();
+  const approved = button.dataset.vote === 'yes';
+  const reason = approved ? null : prompt('Indica el motivo del rechazo:');
+  if (!approved && !reason?.trim()) return alert('El rechazo requiere un motivo.');
+  const { error } = await cloud.rpc('review_vacation_request', {
+    p_request_id: button.dataset.request, p_approved: approved, p_reason: reason?.trim() || null
+  });
+  if (error) return alert(error.message);
+  await showCloudSession();
+  alert(approved ? 'Solicitud aprobada.' : 'Solicitud rechazada.');
 }, true);
 
 // Operaciones del superusuario que ya persisten en la base de datos.
