@@ -17,6 +17,10 @@ async function loadCloudData() {
   ]);
   if (profileResult.error) throw new Error('No se encontró el perfil de acceso.');
   const profile = profileResult.data;
+  if (profile.active === false) {
+    await cloud.auth.signOut();
+    throw new Error('Este acceso fue desactivado. Consulta al superusuario.');
+  }
   const profilesResult = await cloud.from('profiles').select('*').order('full_name');
   const periods = periodResult.data || [];
   data = {
@@ -24,7 +28,7 @@ async function loadCloudData() {
     periods: periods.map((item, index) => ({ id: item.id, name: item.name || `Periodo ${index + 1}`, days: item.business_days, start: item.starts_on, end: item.ends_on })),
     areas: (areaResult.data || []).map(item => ({ id: item.id, name: item.name })),
     holidays: (holidayResult.data || []).map(item => item.holiday_date),
-    users: (profilesResult.data || [profile]).map(item => ({ id: item.id, name: item.full_name, email: item.id === profile.id ? sessionData.user.email : '', role: item.role === 'superuser' ? 'super' : item.role, areaId: item.area_id })),
+    users: (profilesResult.data || [profile]).filter(item => item.active !== false).map(item => ({ id: item.id, name: item.full_name, email: item.id === profile.id ? sessionData.user.email : '', role: item.role === 'superuser' ? 'super' : item.role, areaId: item.area_id })),
     requests: (requestResult.data || []).map(item => ({ id: item.id, userId: item.employee_id, areaId: item.area_id, periodId: item.period_id, days: (item.request_days || []).map(day => day.vacation_date), note: item.note || '', decisions: { [item.reviewed_by || currentUserId]: item.status === 'approved' ? 'yes' : item.status === 'rejected' ? 'no' : 'pending' }, log: (item.approval_audit || []).map(audit => ({ adminName: 'Administrador', decision: audit.action === 'approved' ? 'yes' : 'no', date: audit.created_at.slice(0, 10) })), rejectReason: item.rejection_reason || '' }))
   };
   currentUserId = id;
@@ -84,7 +88,7 @@ document.getElementById('users-list').addEventListener('click', async event => {
   event.stopImmediatePropagation();
   const person = data.users.find(item => String(item.id) === String(button.dataset.delete));
   if (!person || !confirm(`¿Quitar a ${person.name}? Esta acción eliminará su acceso.`)) return;
-  try { await manageCloudUser({ action: 'delete', userId: person.id }); await showCloudSession(); }
+  try { await manageCloudUser({ action: 'deactivate', userId: person.id }); await showCloudSession(); alert('La persona fue desactivada y su historial se conservó.'); }
   catch (error) { alert(error.message); }
 }, true);
 

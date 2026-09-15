@@ -1,0 +1,37 @@
+/* Identidad visual CEDH Nuevo León: azul institucional y dorado. */
+:root {
+  color-scheme: light;
+  --ink: #003f63;
+  --muted: #557088;
+  --page: #f4f8fa;
+  --line: #cddde6;
+  --brand: #005b88;
+  --brand-dark: #003f63;
+  --gold: #f3b400;
+  --green: #087b5a;
+  --amber: #8a5600;
+  --red: #ad3150;
+  --weekend: #e8eef2;
+}
+
+body { background: radial-gradient(circle at 88% 0, #fff7db 0, transparent 27rem), var(--page); }
+h1, h2, h3 { color: var(--brand-dark); }
+.card { background: #fff; box-shadow: 0 10px 28px rgba(0, 63, 99, .08); }
+.primary { background: var(--brand); box-shadow: 0 3px 0 rgba(0, 63, 99, .22); transition: transform .15s ease, background .15s ease; }
+.primary:hover { background: var(--brand-dark); transform: translateY(-1px); }
+.secondary:hover { border-color: var(--brand); color: var(--brand-dark); }
+.day:hover:not(:disabled) { border-color: var(--gold); background: #fff9e8; }
+.day.selected { background: var(--brand); }
+.day.today { outline-color: var(--gold); }
+.dot { background: var(--brand); }
+.cedh-logo { background: var(--gold); border-color: #ffe39a; color: #fff; text-shadow: 0 1px 0 rgba(0,0,0,.12); }
+.login-screen { background: linear-gradient(135deg, #003f63 0%, #005b88 64%, #00729f 100%); }
+.login-card { border-top: 5px solid var(--gold); }
+.eyebrow { color: var(--brand); }
+.admin-tabs button.active { background: var(--brand); border-color: var(--brand); }
+.approved-days-item { border-left-color: var(--gold); background: #fffdf5; border-color: #f1dda0; }
+.approved-days-item span { color: var(--brand-dark); }
+.users-area-heading { margin: 19px 0 2px; color: var(--brand-dark); font-size: .92rem; }
+.users-area-caption { margin: 0 0 10px; font-size: .84rem; }
+
+@media (prefers-reduced-motion: reduce) { .primary { transition: none; } }
