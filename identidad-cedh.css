@@ -42,5 +42,11 @@ h1, h2, h3 { color: var(--brand-dark); }
 .approved-days-item span { color: var(--brand-dark); }
 .users-area-heading { margin: 19px 0 2px; color: var(--brand-dark); font-size: .92rem; }
 .users-area-caption { margin: 0 0 10px; font-size: .84rem; }
+.text-button { display: block; width: max-content; margin: 15px auto 0; padding: 0; border: 0; background: transparent; color: var(--brand); text-decoration: underline; }
+.recovery-panel { margin-top: 14px; }
+.recovery-panel h2 { margin: 5px 0; }
+.super-approved-list { display: grid; gap: 10px; margin-top: 12px; }
+.super-approved-item { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 13px 15px; border: 1px solid var(--line); border-left: 5px solid var(--gold); border-radius: 10px; background: #fffdf5; }
+.super-approved-item span { color: var(--brand-dark); }
 
 @media (prefers-reduced-motion: reduce) { .primary { transition: none; } }

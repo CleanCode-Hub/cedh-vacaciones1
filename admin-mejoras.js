@@ -53,3 +53,34 @@ adminView = function () {
 $('#admin-tabs').addEventListener('click', event => { const button=event.target.closest('[data-employee]'); if(!button)return; selectedEmployeeId=button.dataset.employee; adminView(); });
 const priorRender = render;
 render = function () { priorRender(); document.querySelector('.side').classList.toggle('hidden', user()?.role !== 'employee'); };
+
+let selectedSuperAreaId = null;
+function renderSuperApprovedReport() {
+  let report = $('#super-approved-report');
+  if (!report) {
+    report = document.createElement('section');
+    report.id = 'super-approved-report';
+    report.className = 'card super-users';
+    report.innerHTML = '<h2>Vacaciones aprobadas</h2><p>Consulta informativa por área y persona. Este registro no modifica solicitudes.</p>';
+    $('#super-view').append(report);
+  }
+  const areas = data.areas;
+  if (!areas.length) { report.innerHTML = '<h2>Vacaciones aprobadas</h2><p class="empty">Aún no hay áreas registradas.</p>'; return; }
+  if (!areas.some(item => item.id === selectedSuperAreaId)) selectedSuperAreaId = areas[0].id;
+  const approved = data.requests.filter(request => status(request)[1] === 'approved' && request.areaId === selectedSuperAreaId);
+  const items = approved.length ? approved.map(request => {
+    const person = data.users.find(item => item.id === request.userId);
+    return `<article class="super-approved-item"><strong>${esc(readableName(person?.name))}</strong><span>${dates(request.days)}</span></article>`;
+  }).join('') : '<p class="empty">No hay días aprobados en esta área.</p>';
+  report.innerHTML = `<h2>Vacaciones aprobadas</h2><p>Consulta informativa por área y persona. Este registro no modifica solicitudes.</p><div class="admin-tabs super-area-tabs">${areas.map(item => `<button type="button" data-super-area="${item.id}" class="${item.id === selectedSuperAreaId ? 'active' : ''}">${esc(item.name)}</button>`).join('')}</div><div class="super-approved-list">${items}</div>`;
+}
+
+const previousSuperView = superView;
+superView = function () { previousSuperView(); renderSuperApprovedReport(); };
+
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-super-area]');
+  if (!button) return;
+  selectedSuperAreaId = button.dataset.superArea;
+  renderSuperApprovedReport();
+});

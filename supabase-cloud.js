@@ -28,7 +28,7 @@ async function loadCloudData() {
     periods: periods.map((item, index) => ({ id: item.id, name: item.name || `Periodo ${index + 1}`, days: item.business_days, start: item.starts_on, end: item.ends_on })),
     areas: (areaResult.data || []).map(item => ({ id: item.id, name: item.name })),
     holidays: (holidayResult.data || []).map(item => item.holiday_date),
-    users: (profilesResult.data || [profile]).filter(item => item.active !== false).map(item => ({ id: item.id, name: item.full_name, email: item.id === profile.id ? sessionData.user.email : '', role: item.role === 'superuser' ? 'super' : item.role, areaId: item.area_id })),
+    users: (profilesResult.data || [profile]).filter(item => item.active !== false).map(item => ({ id: item.id, name: item.full_name, email: item.email || (item.id === profile.id ? sessionData.user.email : ''), role: item.role === 'superuser' ? 'super' : item.role, areaId: item.area_id })),
     requests: (requestResult.data || []).map(item => ({ id: item.id, userId: item.employee_id, areaId: item.area_id, periodId: item.period_id, days: (item.request_days || []).map(day => day.vacation_date), note: item.note || '', decisions: { [item.reviewed_by || currentUserId]: item.status === 'approved' ? 'yes' : item.status === 'rejected' ? 'no' : 'pending' }, log: (item.approval_audit || []).map(audit => ({ adminName: 'Administrador', decision: audit.action === 'approved' ? 'yes' : 'no', date: audit.created_at.slice(0, 10) })), rejectReason: item.rejection_reason || '' }))
   };
   currentUserId = id;
@@ -54,7 +54,42 @@ document.getElementById('logout').addEventListener('click', async event => {
   event.stopImmediatePropagation(); await cloud.auth.signOut(); currentUserId = null; document.getElementById('login-screen').classList.remove('hidden');
 }, true);
 
-cloud.auth.getSession().then(({ data: { session } }) => { if (session) showCloudSession().catch(() => {}); });
+// La pantalla inicia siempre sin sesión. Así nadie que abra una nueva pestaña
+// entra automáticamente con el acceso que quedó guardado en el navegador.
+// El enlace de recuperación es la única excepción: necesita conservar su token.
+const isRecoveryLink = /type=recovery/.test(window.location.hash) || /type=recovery/.test(window.location.search);
+if (!isRecoveryLink) cloud.auth.signOut();
+
+function openRecovery() {
+  document.getElementById('login-form').classList.add('hidden');
+  document.getElementById('recovery-form').classList.remove('hidden');
+}
+
+document.getElementById('forgot-password').addEventListener('click', async () => {
+  const email = document.querySelector('#login-form [name="email"]').value.trim();
+  if (!email) return alert('Escribe primero tu correo institucional.');
+  const redirectTo = `${window.location.origin}${window.location.pathname}`;
+  const { error } = await cloud.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) return alert(error.message);
+  alert('Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.');
+});
+
+document.getElementById('recovery-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = new FormData(event.target), password = String(form.get('password') || '');
+  if (password !== String(form.get('confirm') || '')) {
+    const message = document.getElementById('recovery-error');
+    message.textContent = 'Las contraseñas no coinciden.'; message.classList.remove('hidden'); return;
+  }
+  const { error } = await cloud.auth.updateUser({ password });
+  if (error) return alert(error.message);
+  await cloud.auth.signOut();
+  event.target.reset(); event.target.classList.add('hidden');
+  document.getElementById('login-form').classList.remove('hidden');
+  alert('Contraseña actualizada. Ya puedes iniciar sesión.');
+});
+
+cloud.auth.onAuthStateChange((event) => { if (event === 'PASSWORD_RECOVERY') openRecovery(); });
 
 // Crear y eliminar personas pasa por una función segura del servidor.
 async function manageCloudUser(payload) {

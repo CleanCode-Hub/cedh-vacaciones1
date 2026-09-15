@@ -8,8 +8,8 @@
   <link rel="stylesheet" href="periodos.css">
   <link rel="stylesheet" href="mejoras.css">
   <link rel="stylesheet" href="correcciones.css">
-  <link rel="stylesheet" href="admin-mejoras.css?v=20260915-5">
-  <link rel="stylesheet" href="identidad-cedh.css?v=20260915-2">
+  <link rel="stylesheet" href="admin-mejoras.css?v=20260915-6">
+  <link rel="stylesheet" href="identidad-cedh.css?v=20260915-3">
 </head>
 <body>
   <section class="login-screen" id="login-screen" aria-labelledby="login-title">
@@ -22,6 +22,16 @@
       <label>Contraseña<input type="password" name="password" autocomplete="current-password" required></label>
       <p class="login-error hidden" id="login-error" role="alert">El correo o la contraseña no son correctos.</p>
       <button class="primary login-button">Ingresar</button>
+      <button class="text-button" id="forgot-password" type="button">¿Olvidaste tu contraseña?</button>
+    </form>
+    <form class="recovery-panel hidden" id="recovery-form">
+      <p class="eyebrow">Restablecer contraseña</p>
+      <h2>Elige una nueva contraseña</h2>
+      <p>Usa al menos 8 caracteres y no la compartas con nadie.</p>
+      <label>Nueva contraseña<input type="password" name="password" minlength="8" autocomplete="new-password" required></label>
+      <label>Confirmar contraseña<input type="password" name="confirm" minlength="8" autocomplete="new-password" required></label>
+      <p class="login-error hidden" id="recovery-error" role="alert"></p>
+      <button class="primary login-button">Guardar nueva contraseña</button>
     </form>
   </section>
   <main>
@@ -37,7 +47,7 @@
   <script src="periodos.js?v=20260915-2"></script>
   <script src="mejoras.js"></script>
   <script src="correcciones.js"></script>
-<script src="admin-mejoras.js?v=20260915-5"></script>
+<script src="admin-mejoras.js?v=20260915-6"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-cloud.js?v=20260915-8"></script>
+  <script src="supabase-cloud.js?v=20260915-10"></script>
 </body></html>
