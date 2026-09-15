@@ -24,7 +24,16 @@ h1, h2, h3 { color: var(--brand-dark); }
 .day.selected { background: var(--brand); }
 .day.today { outline-color: var(--gold); }
 .dot { background: var(--brand); }
-.cedh-logo { background: var(--gold); border-color: #ffe39a; color: #fff; text-shadow: 0 1px 0 rgba(0,0,0,.12); }
+.cedh-logo {
+  display: block;
+  object-fit: contain;
+  background: #fff;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: 0 3px 10px rgba(0, 63, 99, .16);
+}
+.login-card .cedh-logo { width: 116px; height: 116px; }
+.brand-mini img.cedh-logo { width: 54px; height: 54px; }
 .login-screen { background: linear-gradient(135deg, #003f63 0%, #005b88 64%, #00729f 100%); }
 .login-card { border-top: 5px solid var(--gold); }
 .eyebrow { color: var(--brand); }

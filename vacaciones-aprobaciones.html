@@ -9,12 +9,12 @@
   <link rel="stylesheet" href="mejoras.css">
   <link rel="stylesheet" href="correcciones.css">
   <link rel="stylesheet" href="admin-mejoras.css?v=20260915-5">
-  <link rel="stylesheet" href="identidad-cedh.css?v=20260915-1">
+  <link rel="stylesheet" href="identidad-cedh.css?v=20260915-2">
 </head>
 <body>
   <section class="login-screen" id="login-screen" aria-labelledby="login-title">
     <form class="login-card" id="login-form">
-      <div class="cedh-logo" aria-label="CEDH">CEDH</div>
+      <img class="cedh-logo" src="cedh-logo.gif" alt="Logotipo de la CEDH Nuevo León">
       <p class="eyebrow">Comisión Estatal de los Derechos Humanos</p>
       <h1 id="login-title">Portal de vacaciones</h1>
       <p>Ingresa con tu correo institucional.</p>
@@ -25,7 +25,7 @@
     </form>
   </section>
   <main>
-    <header><div class="brand-mini"><div class="cedh-logo">CEDH</div><div><h1>Portal de vacaciones</h1><p id="welcome"></p></div></div><button class="secondary" id="logout" type="button">Cerrar sesión</button></header>
+    <header><div class="brand-mini"><img class="cedh-logo" src="cedh-logo.gif" alt="CEDH"><div><h1>Portal de vacaciones</h1><p id="welcome"></p></div></div><button class="secondary" id="logout" type="button">Cerrar sesión</button></header>
     <section class="app-grid"><div>
       <section id="employee-view" class="card hidden"><h2>Solicitar vacaciones</h2><label>Periodo de vacaciones<select id="period-select"></select></label><p id="policy-message"></p><div class="calendar-nav"><button class="secondary" id="previous" type="button">←</button><strong id="month-label"></strong><button class="secondary" id="next" type="button">→</button></div><div class="calendar" id="calendar"></div><div class="legend"><span><i class="dot"></i> Día elegido</span><span><i class="dot gray"></i> Fin de semana o día fuera del periodo</span></div><div id="selection-info" class="notice"></div><label>Comentario (opcional)<textarea id="request-note" placeholder="Ej. Viaje familiar"></textarea></label><div class="actions"><button class="primary" id="send-request" type="button">Enviar solicitud</button><button class="secondary" id="clear-days" type="button">Limpiar selección</button></div></section>
       <section id="admin-view" class="card hidden"><h2>Registro de mi área</h2><p id="admin-area-label"></p><h3 class="users-area-heading">Usuarios del área</h3><p class="users-area-caption">Selecciona una persona para consultar y atender sus solicitudes.</p><div class="admin-tabs" id="admin-tabs"></div><div id="admin-list"></div><section class="admin-approved-summary"><h3>Resumen de días aprobados</h3><p class="notice">Consulta los días aprobados por colaborador; este registro es solo informativo.</p><div id="admin-calendar"></div></section></section>
