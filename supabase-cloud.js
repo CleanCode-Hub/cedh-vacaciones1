@@ -33,11 +33,12 @@ async function loadCloudData() {
   };
   currentUserId = id;
   selectedPeriod = data.periods[0]?.id || 1;
+  if (window.loadUDIData) await window.loadUDIData();
   return true;
 }
 
 async function showCloudSession() {
-  await loadCloudData();
+  if (!await loadCloudData()) throw new Error('La sesión terminó. Ingresa de nuevo.');
   document.getElementById('login-screen').classList.add('hidden');
   render();
 }
@@ -117,14 +118,24 @@ document.getElementById('add-user').addEventListener('submit', async event => {
   } catch (error) { alert(error.message); }
 }, true);
 
-document.getElementById('users-list').addEventListener('click', async event => {
-  const button = event.target.closest('[data-delete]');
+// Capturar desde document antes de los manejadores locales antiguos de users-list.
+document.addEventListener('click', async event => {
+  const button = event.target.closest('#users-list [data-delete]');
   if (!button) return;
+  event.preventDefault();
   event.stopImmediatePropagation();
+  if (button.disabled) return;
   const person = data.users.find(item => String(item.id) === String(button.dataset.delete));
-  if (!person || !confirm(`¿Quitar a ${person.name}? Esta acción eliminará su acceso.`)) return;
-  try { await manageCloudUser({ action: 'deactivate', userId: person.id }); await showCloudSession(); alert('La persona fue desactivada y su historial se conservó.'); }
-  catch (error) { alert(error.message); }
+  if (!person || !confirm(`¿Desactivar a ${person.name}? Se bloqueará su acceso y se conservará su historial.`)) return;
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Desactivando…';
+  try {
+    await manageCloudUser({ action: 'deactivate', userId: person.id });
+    await showCloudSession();
+    alert('La persona fue desactivada y su historial se conservó.');
+  } catch (error) { alert(error.message); }
+  finally { button.disabled = false; button.textContent = label; }
 }, true);
 
 // Las solicitudes se guardan en Supabase para que el administrador del área
