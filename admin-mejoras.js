@@ -37,7 +37,7 @@ function renderAdminCalendar(requests) {
       const person = data.users.find(item => item.id === request.userId);
       return `<article class="approved-days-item"><strong>${esc(readableName(person?.name))}</strong><span>${dates(request.days)}</span></article>`;
     }).join('')}</div>`
-    : '<p class="empty">Aún no hay días aprobados en esta área.</p>';
+    : '<p class="empty">Esta persona aún no tiene días aprobados.</p>';
 }
 
 adminView = function () {
@@ -47,7 +47,7 @@ adminView = function () {
   $('#admin-tabs').innerHTML=people.map(person=>`<button type="button" data-employee="${person.id}" class="${person.id===selectedEmployeeId?'active':''}">${esc(readableName(person.name))}</button>`).join('');
   const allRequests=data.requests.filter(request=>people.some(person=>person.id===request.userId)), requests=allRequests.filter(request=>request.userId===selectedEmployeeId).sort((a,b)=>b.id-a.id);
   $('#admin-list').innerHTML=requests.length?requests.map(request=>{const [label,kind]=status(request);const pending=kind==='pending';const rejection=request.rejectReason ? `<p class="history"><strong>Motivo del rechazo:</strong> ${esc(request.rejectReason)}</p>` : '';return `<article class="request"><div class="request-head"><strong>Días solicitados: ${dates(request.days)}</strong><span class="status ${kind}">${label}</span></div>${request.note?`<p>${esc(request.note)}</p>`:''}${pending?`<div class="actions"><button class="primary" data-vote="yes" data-request="${request.id}">Sí, aprobar</button><button class="secondary danger" data-vote="no" data-request="${request.id}">Rechazar</button></div>`:rejection}</article>`;}).join(''):'<p class="empty">Esta persona no tiene solicitudes.</p>';
-  renderAdminCalendar(allRequests);
+  renderAdminCalendar(requests);
 };
 
 $('#admin-tabs').addEventListener('click', event => { const button=event.target.closest('[data-employee]'); if(!button)return; selectedEmployeeId=button.dataset.employee; adminView(); });
