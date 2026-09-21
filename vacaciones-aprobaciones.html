@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-session-state="loading">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -10,9 +10,21 @@
   <link rel="stylesheet" href="correcciones.css">
   <link rel="stylesheet" href="admin-mejoras.css?v=20260915-6">
   <link rel="stylesheet" href="identidad-cedh.css?v=20260915-3">
-  <link rel="stylesheet" href="panel-administracion.css?v=20260921-1">
+  <link rel="stylesheet" href="panel-administracion.css?v=20260921-4">
+<style>
+html[data-session-state="loading"] #login-screen,html[data-session-state="loading"] body>main{display:none!important}
+#session-loading{display:none}
+html[data-session-state="loading"] #session-loading{position:fixed;inset:0;z-index:20;display:grid;place-content:center;justify-items:center;gap:16px;background:#f4f8fa;color:#005879;font:16px system-ui;text-align:center;padding:24px}
+.session-spinner{width:32px;height:32px;border:3px solid #c9dfe7;border-top-color:#005d80;border-radius:50%;animation:session-spin .85s linear infinite}
+@keyframes session-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.session-spinner{animation:none}}
+</style>
+<script>
+window.addEventListener('load',function(){setTimeout(function(){if(document.documentElement.dataset.sessionState==='loading'){document.getElementById('session-loading-message').textContent='La conexión está tardando más de lo esperado.';document.getElementById('session-retry').hidden=false;}},15000);});
+</script>
 </head>
 <body>
+<section id="session-loading" role="status" aria-live="polite"><div class="session-spinner" aria-hidden="true"></div><strong>Portal de vacaciones</strong><span id="session-loading-message">Cargando tu sesión y las solicitudes…</span><button type="button" class="secondary" id="session-retry" hidden onclick="location.reload()">Volver a intentar</button></section>
   <section class="login-screen" id="login-screen" aria-labelledby="login-title">
     <form class="login-card" id="login-form">
       <img class="cedh-logo" src="cedh-logo.gif" alt="Logotipo de la CEDH Nuevo León">
@@ -50,6 +62,6 @@
   <script src="correcciones.js"></script>
 <script src="admin-mejoras.js?v=20260917-1"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-cloud.js?v=20260921-3"></script>
+  <script src="supabase-cloud.js?v=20260921-4"></script>
   <script src="udi.js?v=20260917-1"></script>
-  <script src="super-pestanas.js?v=20260921-1"></script></body></html>
+  <script src="super-pestanas.js?v=20260921-4"></script></body></html>

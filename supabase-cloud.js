@@ -59,6 +59,9 @@ document.getElementById('logout').addEventListener('click', async event => {
 // Esperar a que UDI y las pestañas hayan terminado de cargar.
 const isRecoveryLink = /type=recovery/.test(window.location.hash) || /type=recovery/.test(window.location.search);
 let recoveringPassword = isRecoveryLink;
+function finishSessionLoading() {
+  document.documentElement.dataset.sessionState = 'ready';
+}
 document.addEventListener('DOMContentLoaded', async () => {
   if (recoveringPassword) { openRecovery(); return; }
   const loginButton = document.querySelector('#login-form button[type="submit"], #login-form .login-button');
@@ -76,12 +79,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   } finally {
     loginButton.disabled = false;
     loginButton.textContent = label;
+    finishSessionLoading();
   }
 });
 
 function openRecovery() {
   document.getElementById('login-form').classList.add('hidden');
   document.getElementById('recovery-form').classList.remove('hidden');
+  finishSessionLoading();
 }
 
 document.getElementById('forgot-password').addEventListener('click', async () => {

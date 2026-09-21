@@ -8,7 +8,51 @@
     ['approved', 'Vacaciones aprobadas', 'Consulta las vacaciones autorizadas por área.', '#super-approved-report'],
     ['rh', 'Recursos Humanos', 'Consulta el dashboard y organiza al personal con UDI.', '#udi-view']
   ];
-  let selected = 'people', owner = null;
+  let selected = 'people', owner = null, peopleQuery = '';
+  const normalize = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-MX');
+  function filterPeople() {
+    const terms = normalize(peopleQuery).trim().split(/\s+/).filter(Boolean);
+    const rows = [...document.querySelectorAll('#users-list tr[data-person-search]')];
+    let matches = 0;
+    rows.forEach(row => {
+      const match = terms.every(term => row.dataset.personSearch.includes(term));
+      row.hidden = !match;
+      if (match) matches++;
+    });
+    const count = document.getElementById('super-people-count');
+    if (count) count.textContent = `${matches} de ${rows.length} personas`;
+    let empty = document.getElementById('super-people-empty');
+    if (!empty) {
+      empty = document.createElement('tr'); empty.id = 'super-people-empty';
+      empty.innerHTML = '<td colspan="5" class="empty">No hay personas que coincidan con la búsqueda.</td>';
+      document.getElementById('users-list').append(empty);
+    }
+    empty.hidden = matches > 0;
+  }
+  function setupPeopleSearch(table) {
+    let search = document.getElementById('super-people-search');
+    if (!search) {
+      const controls = document.createElement('div'); controls.className = 'super-people-search';
+      controls.innerHTML = '<label for="super-people-search">Buscar personas<input type="search" id="super-people-search" placeholder="Nombre, correo, área o ID" autocomplete="off"></label><button type="button" class="secondary" id="super-people-clear">Limpiar</button><p id="super-people-count" role="status" aria-live="polite"></p>';
+      table.parentElement.before(controls);
+      search = document.getElementById('super-people-search');
+      search.addEventListener('input', () => { peopleQuery = search.value; filterPeople(); });
+      document.getElementById('super-people-clear').addEventListener('click', () => {
+        search.value = ''; peopleQuery = ''; filterPeople(); search.focus();
+      });
+    }
+    search.value = peopleQuery;
+    const rows = [...document.querySelectorAll('#users-list tr:not(#super-people-empty)')];
+    rows.forEach((row, index) => {
+      const person = data.users[index]; if (!person) return;
+      const biotimeId = typeof udi !== 'undefined' ? udi.people.find(p => p.profile_id === person.id)?.biotime_id : '';
+      row.dataset.personSearch = normalize([person.name, person.email, area(person.areaId)?.name || 'Sin área', person.id, biotimeId].join(' '));
+      let idLabel = row.querySelector('.super-person-id');
+      if (!idLabel) { idLabel = document.createElement('small'); idLabel.className = 'super-person-id'; row.cells[0].append(idLabel); }
+      idLabel.textContent = `ID: ${person.id}${biotimeId ? ' · BioTime: '+biotimeId : ''}`;
+    });
+    filterPeople();
+  }
   function sync() {
     const isSuper = user()?.role === 'super';
     let shell = document.getElementById('super-navigation');
@@ -18,7 +62,7 @@
       if (rh) { rh.hidden = false; rh.removeAttribute('role'); rh.removeAttribute('aria-labelledby'); }
       return;
     }
-    if (owner !== currentUserId) { owner = currentUserId; selected = 'people'; }
+    if (owner !== currentUserId) { owner = currentUserId; selected = 'people'; peopleQuery = ''; }
     if (!shell) {
       shell = document.createElement('section');
       shell.id = 'super-navigation';
@@ -64,6 +108,7 @@
       const wrap = document.createElement('div'); wrap.className = 'super-table-scroll';
       table.before(wrap); wrap.append(table);
     }
+    if (table) setupPeopleSearch(table);
   }
   const originalRenderUDI = renderUDI;
   renderUDI = function() { originalRenderUDI(); sync(); };
