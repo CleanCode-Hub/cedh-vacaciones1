@@ -39,8 +39,8 @@ async function loadCloudData() {
 
 async function showCloudSession() {
   if (!await loadCloudData()) throw new Error('La sesión terminó. Ingresa de nuevo.');
-  document.getElementById('login-screen').classList.add('hidden');
   render();
+  document.getElementById('login-screen').classList.add('hidden');
 }
 
 document.getElementById('login-form').addEventListener('submit', async event => {
@@ -55,11 +55,29 @@ document.getElementById('logout').addEventListener('click', async event => {
   event.stopImmediatePropagation(); await cloud.auth.signOut(); currentUserId = null; document.getElementById('login-screen').classList.remove('hidden');
 }, true);
 
-// La pantalla inicia siempre sin sesión. Así nadie que abra una nueva pestaña
-// entra automáticamente con el acceso que quedó guardado en el navegador.
-// El enlace de recuperación es la única excepción: necesita conservar su token.
+// Recuperar la sesión guardada y volver a consultar los datos al recargar.
+// Esperar a que UDI y las pestañas hayan terminado de cargar.
 const isRecoveryLink = /type=recovery/.test(window.location.hash) || /type=recovery/.test(window.location.search);
-if (!isRecoveryLink) cloud.auth.signOut();
+let recoveringPassword = isRecoveryLink;
+document.addEventListener('DOMContentLoaded', async () => {
+  if (recoveringPassword) { openRecovery(); return; }
+  const loginButton = document.querySelector('#login-form button[type="submit"], #login-form .login-button');
+  const label = loginButton.textContent;
+  loginButton.disabled = true;
+  loginButton.textContent = 'Recuperando sesión…';
+  try {
+    const { data: stored, error } = await cloud.auth.getSession();
+    if (error) throw error;
+    if (stored.session && !recoveringPassword) await showCloudSession();
+  } catch (error) {
+    const message = document.getElementById('login-error');
+    message.textContent = error.message || 'No se pudo recuperar la sesión. Intenta actualizar de nuevo.';
+    message.classList.remove('hidden');
+  } finally {
+    loginButton.disabled = false;
+    loginButton.textContent = label;
+  }
+});
 
 function openRecovery() {
   document.getElementById('login-form').classList.add('hidden');
@@ -90,7 +108,15 @@ document.getElementById('recovery-form').addEventListener('submit', async event 
   alert('Contraseña actualizada. Ya puedes iniciar sesión.');
 });
 
-cloud.auth.onAuthStateChange((event) => { if (event === 'PASSWORD_RECOVERY') openRecovery(); });
+cloud.auth.onAuthStateChange((event) => {
+  // No consultar Auth desde este callback: la restauración se hace fuera de él.
+  if (event === 'PASSWORD_RECOVERY') { recoveringPassword = true; openRecovery(); }
+  if (event === 'SIGNED_OUT') {
+    currentUserId = null; chosen = [];
+    document.getElementById('login-screen').classList.remove('hidden');
+    document.getElementById('udi-view')?.classList.add('hidden');
+  }
+});
 
 // Crear y eliminar personas pasa por una función segura del servidor.
 async function manageCloudUser(payload) {
