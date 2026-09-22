@@ -15,9 +15,9 @@ async function loadCloudData() {
     cloud.from('holidays').select('*').order('holiday_date'),
     cloud.from('vacation_requests').select('*, request_days(vacation_date), approval_audit(*)').order('created_at', { ascending: false })
   ]);
-  if (profileResult.error) throw new Error('No se encontró el perfil de acceso.');
+  if (profileResult.error || !profileResult.data) throw new Error('No se encontró el perfil de acceso.');
   const profile = profileResult.data;
-  if (profile.active === false) {
+  if (profile.active !== true) {
     await cloud.auth.signOut();
     throw new Error('Este acceso fue desactivado. Consulta al superusuario.');
   }
@@ -38,7 +38,10 @@ async function loadCloudData() {
 }
 
 async function showCloudSession() {
-  if (!await loadCloudData()) throw new Error('La sesión terminó. Ingresa de nuevo.');
+  try {
+    if (!await loadCloudData()) throw new Error('La sesión terminó. Ingresa de nuevo.');
+  } catch (error) { await denyPortalAccess(error.message); throw error; }
+  document.querySelector('main').hidden = false;
   render();
   document.getElementById('login-screen').classList.add('hidden');
 }
@@ -117,6 +120,7 @@ cloud.auth.onAuthStateChange((event) => {
   // No consultar Auth desde este callback: la restauración se hace fuera de él.
   if (event === 'PASSWORD_RECOVERY') { recoveringPassword = true; openRecovery(); }
   if (event === 'SIGNED_OUT') {
+    clearPortalAccess();
     currentUserId = null; chosen = [];
     document.getElementById('login-screen').classList.remove('hidden');
     document.getElementById('udi-view')?.classList.add('hidden');
@@ -157,7 +161,9 @@ document.addEventListener('click', async event => {
   event.stopImmediatePropagation();
   if (button.disabled) return;
   const person = data.users.find(item => String(item.id) === String(button.dataset.delete));
-  if (!person || !confirm(`¿Desactivar a ${person.name}? Se bloqueará su acceso y se conservará su historial.`)) return;
+  if (!person) return;
+  if (String(person.id) === String(currentUserId) || ['super', 'superuser'].includes(person.role)) return alert('No se puede desactivar tu cuenta ni otra cuenta de superusuario.');
+  if (!confirm(`¿Desactivar a ${person.name}? Se bloqueará su acceso y se conservará su historial.`)) return;
   const label = button.textContent;
   button.disabled = true;
   button.textContent = 'Desactivando…';
@@ -229,3 +235,32 @@ document.getElementById('policy-form').addEventListener('submit', async event =>
   if (error) return alert(error.message);
   await showCloudSession();
 }, true);
+
+
+// RLS es la protección inmediata; esta revisión retira también la interfaz abierta.
+function clearPortalAccess() {
+  currentUserId = null; chosen = []; data = structuredClone(sample);
+  localStorage.removeItem(store);
+  document.querySelector('main').hidden = true;
+  document.getElementById('login-screen').classList.remove('hidden');
+  if (typeof udi !== 'undefined') { udi.people = []; }
+}
+async function denyPortalAccess(message) {
+  clearPortalAccess();
+  const error = document.getElementById('login-error');
+  error.textContent = message; error.classList.remove('hidden');
+  await cloud.auth.signOut({ scope: 'local' });
+}
+let checkingAccess = false;
+async function checkPortalAccess() {
+  if (!currentUserId || checkingAccess) return;
+  checkingAccess = true;
+  try {
+    const { data: profile, error } = await cloud.from('profiles').select('active').eq('id', currentUserId).single();
+    if (error || profile?.active !== true) await denyPortalAccess('No se pudo validar tu acceso. Ingresa nuevamente o consulta al superusuario.');
+  } catch (_) { await denyPortalAccess('No se pudo validar tu acceso. Ingresa nuevamente.'); }
+  finally { checkingAccess = false; }
+}
+setInterval(checkPortalAccess, 15000);
+window.addEventListener('focus', checkPortalAccess);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkPortalAccess(); });
