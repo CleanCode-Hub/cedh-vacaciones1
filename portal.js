@@ -134,6 +134,7 @@ function render() {
  $('#super-view').classList.toggle('hidden',me.role!=='super');
  document.querySelector('.side').classList.toggle('hidden',me.role!=='employee');
  summary();
+ renderAttendanceSummary();
  if(me.role==='employee')calendar();
  if(me.role==='admin')adminView();
  if(me.role==='super')superView();
@@ -141,9 +142,59 @@ function render() {
 // Navegación local. Las escrituras de cuentas y vacaciones viven en acceso.js.
 $('#previous').onclick=()=>{month.setMonth(month.getMonth()-1);calendar()};
 $('#next').onclick=()=>{month.setMonth(month.getMonth()+1);calendar()};
-$('#calendar').addEventListener('click',e=>{const b=e.target.closest('[data-day]');if(!b)return;const d=b.dataset.day;chosen=chosen.includes(d)?chosen.filter(x=>x!==d):[...chosen,d].sort();calendar()});
+$('#calendar').addEventListener('click', event => {
+ const button = event.target.closest('[data-day]');
+ if (!button || button.disabled) return;
+ const day = button.dataset.day;
+ if (chosen.includes(day)) {
+  chosen = chosen.filter(value => value !== day);
+  calendar();
+  return;
+ }
+ const activePeriod = period();
+ const available = Math.max((activePeriod?.days || 0) - periodDays(currentUserId, activePeriod?.id).length, 0);
+ if (chosen.length >= available) {
+  const message = $('#selection-info');
+  message.setAttribute('role', 'status');
+  message.textContent = available === 0 ? 'No tienes días disponibles en este periodo.' : 'Ya seleccionaste tus '+available+' días disponibles. Desmarca uno para elegir otra fecha.';
+  return;
+ }
+ chosen = [...chosen, day].sort();
+ calendar();
+});
 $('#clear-days').onclick=()=>{chosen=[];calendar()};
 $('#period-select').addEventListener('change',e=>{selectedPeriod=e.target.value;chosen=[];render()});
 $('#login-form').addEventListener('submit',e=>{e.preventDefault();$('#login-error').textContent='No se pudo conectar con el servicio de acceso. Recarga la página.';$('#login-error').classList.remove('hidden')});
 
 $('#holiday-previous').onclick=()=>{holidayMonth.setMonth(holidayMonth.getMonth()-1);holidayCalendar()};$('#holiday-next').onclick=()=>{holidayMonth.setMonth(holidayMonth.getMonth()+1);holidayCalendar()};$('#holiday-calendar').addEventListener('click',e=>{const b=e.target.closest('[data-holiday]');if(!b)return;const d=b.dataset.holiday;data.holidays=data.holidays.includes(d)?data.holidays.filter(x=>x!==d):[...data.holidays,d];save();holidayCalendar()});
+
+// Entradas futuras: un registro diario validado por persona, con fecha local YYYY-MM-DD.
+// undefined/null significa que BioTime todavía no entregó información de este mes.
+function monthlyAttendanceTotals(records, employeeId, selectedMonth) {
+ if (!Array.isArray(records)) return null;
+ const days = new Set(); let late = 0, direct = 0;
+ for (const record of records) {
+  if (record.employeeId !== employeeId || !record.date.startsWith(selectedMonth+'-')) continue;
+  if (days.has(record.date)) throw new Error('Hay días duplicados en el resumen de asistencia.');
+  days.add(record.date);
+  if (record.status === 'late') late++;
+  if (record.status === 'absence') direct++;
+ }
+ const equivalent = Math.floor(late / 4);
+ return { late, direct, equivalent, total: direct + equivalent, remaining: late % 4 };
+}
+function renderAttendanceSummary() {
+ const root = document.getElementById('attendance-summary'); if (!root) return;
+ root.hidden = user()?.role !== 'employee'; if (root.hidden) return;
+ const picker = document.getElementById('attendance-month');
+ if (!picker.value) picker.value = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Monterrey',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()).slice(0,7);
+ // Se habilitará al integrar una fuente autorizada y completa por mes.
+ const records = data.attendanceByMonth?.[picker.value];
+ let totals = null;
+ try { totals = monthlyAttendanceTotals(records, currentUserId, picker.value); }
+ catch (_) { /* Datos inconsistentes: no presentar un total potencialmente incorrecto. */ }
+ const labels = [['late','Retardos'],['direct','Faltas directas'],['equivalent','Faltas por retardos'],['total','Total de faltas']];
+ document.getElementById('attendance-totals').innerHTML = labels.map(([key,label]) => '<div class="metric"><span>'+label+'</span><strong>'+(totals ? totals[key] : '—')+'</strong></div>').join('');
+ document.getElementById('attendance-state').textContent = totals ? 'Retardos restantes en este mes: '+totals.remaining+'. No se trasladan al siguiente mes.' : 'Sin datos de asistencia para este mes. Conexión con BioTime pendiente; los guiones no significan cero incidencias.';
+}
+document.getElementById('attendance-month').addEventListener('change',renderAttendanceSummary);
