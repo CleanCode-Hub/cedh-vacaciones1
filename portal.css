@@ -171,3 +171,5 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .login-screen { place-items: start center; }
   .login-card { margin-block: 0; }
 }
+
+#attendance-summary[hidden]{display:none!important}.attendance-totals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}.attendance-totals .metric:last-child{background:#eaf4f7;border-color:#99c2d3}.attendance-rules{font-size:.82rem;color:var(--muted)}.attendance-rules summary{cursor:pointer;padding:10px 0;font-weight:650}.attendance-rules p{margin-top:10px}
