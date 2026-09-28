@@ -10,10 +10,12 @@ document.addEventListener('click',async event=>{
  if(button.dataset.adminCancel){
   const request=data.requests.find(r=>String(r.id)===button.dataset.adminCancel);
   if(!request || !adminCancellationAction(request))return alert('Solo puedes cancelar vacaciones futuras de tu área.');
-  const reason=prompt('Motivo de cancelación (obligatorio):',request.cancellationReason||'');
+  const authorizing=status(request)[1]==='cancellation_pending';
+  // El motivo original se conserva en el servidor; aquí se registra la autorización.
+  const reason=authorizing ? 'Cancelación solicitada por el colaborador autorizada.' : prompt('Motivo de cancelación (obligatorio):','');
   if(reason===null)return;
   if(!reason.trim() || reason.trim().length>1000)return alert('Escribe un motivo de entre 1 y 1000 caracteres.');
-  if(!confirm('¿Cancelar estas vacaciones? Se conservará el historial y se liberarán los días aprobados.'))return;
+  if(!confirm(authorizing ? '¿Autorizar la cancelación solicitada por el colaborador? Se conservará su motivo y se liberarán los días aprobados.' : '¿Cancelar estas vacaciones? Se conservará el historial y se liberarán los días aprobados.'))return;
   rpc='admin_cancel_vacation_request';args={p_request_id:request.id,p_reason:reason.trim(),p_expected_status:status(request)[1]};message='Vacaciones canceladas. Se conservó el historial y se actualizó el saldo.';
  }else{
   if(user()?.role!=='super')return;
