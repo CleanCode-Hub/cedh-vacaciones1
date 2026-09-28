@@ -5,8 +5,20 @@ const sample={policy:{days:15,start:'2026-01-01',end:'2026-12-31'},areas:[],user
 let data=structuredClone(sample);let currentUserId=null,month=new Date(),chosen=[];
 const $=s=>document.querySelector(s),save=()=>localStorage.setItem(store,JSON.stringify(data)),user=()=>data.users.find(x=>x.id===currentUserId),esc=s=>String(s||'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const role=r=>({super:'Superusuario',admin:'Administrador',employee:'Colaborador',udi:'UDI · Recursos Humanos'})[r],area=id=>data.areas.find(x=>x.id===id),adminFor=id=>data.users.find(x=>x.role==='admin'&&x.areaId===id);
-function status(r){const v=Object.values(r.decisions);if(v.includes('no'))return['Rechazada','rejected'];if(v.length&&v.every(x=>x==='yes'))return['Aprobada','approved'];return['En espera','pending']}
-function approvedDays(id){return data.requests.filter(r=>r.userId===id&&status(r)[1]==='approved').flatMap(r=>r.days)}function validDay(d){return d>=data.policy.start&&d<=data.policy.end}function dates(days){const f=new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',year:'numeric'});return days.length===1?f.format(new Date(days[0]+'T12:00:00')):`${f.format(new Date(days[0]+'T12:00:00'))} · ${days.length} días hábiles`}
+function status(r){if(r.state==='cancelled')return['Cancelada','cancelled'];if(r.state==='cancellation_pending')return['Cancelación pendiente','cancellation_pending'];const v=Object.values(r.decisions);if(v.includes('no'))return['Rechazada','rejected'];if(v.length&&v.every(x=>x==='yes'))return['Aprobada','approved'];return['En espera','pending']}
+function occupiesVacationDays(request) { return ['approved','cancellation_pending'].includes(status(request)[1]); }
+function vacationToday(now = new Date()) { return new Intl.DateTimeFormat('en-CA', {timeZone:'America/Monterrey',year:'numeric',month:'2-digit',day:'2-digit'}).format(now); }
+function cancellationAction(request, today = vacationToday()) {
+ if(user()?.role !== 'employee' || request.userId !== currentUserId || !request.days.length || request.days.some(day => !/^\d{4}-\d{2}-\d{2}$/.test(day)) || [...request.days].sort()[0] <= today) return null;
+ const kind=status(request)[1];
+ return kind==='pending' ? 'Cancelar solicitud' : kind==='approved' ? 'Solicitar cancelación' : null;
+}
+function cancellationMarkup(request) {
+ const action=cancellationAction(request);
+ const reason=request.cancellationReason ? '<p>Motivo de cancelación: '+esc(request.cancellationReason)+'</p>' : '';
+ return reason+(action ? '<div class="actions"><button type="button" class="secondary danger" data-cancel-request="'+esc(request.id)+'">'+action+'</button></div>' : '');
+}
+function approvedDays(id){return data.requests.filter(r=>r.userId===id&&occupiesVacationDays(r)).flatMap(r=>r.days)}function validDay(d){return d>=data.policy.start&&d<=data.policy.end}function dates(days){const f=new Intl.DateTimeFormat('es-MX',{day:'numeric',month:'short',year:'numeric'});return days.length===1?f.format(new Date(days[0]+'T12:00:00')):`${f.format(new Date(days[0]+'T12:00:00'))} · ${days.length} días hábiles`}
 
 // Complemento: dos periodos de vacaciones independientes.
 if (!data.periods) data.periods = [
@@ -16,7 +28,7 @@ if (!data.periods) data.periods = [
 let selectedPeriod = 1;
 const period = () => data.periods.find(item => item.id === selectedPeriod);
 const usePeriod = () => { data.policy = period(); };
-function periodDays(userId, periodId) { return data.requests.filter(request => request.userId === userId && (request.periodId || 1) === periodId && status(request)[1] === 'approved').flatMap(request => request.days); }
+function periodDays(userId, periodId) { return data.requests.filter(request => request.userId === userId && (request.periodId || 1) === periodId && occupiesVacationDays(request)).flatMap(request => request.days); }
 
 
 // Mejoras de control de días y registro de decisiones.
@@ -69,11 +81,11 @@ function summary() {
   $('#pending-count').textContent = pending; $('#approved-count').textContent = approved; $('#days-count').textContent = remaining;
   $('#my-balance').innerHTML = `<div><span>${active.name}</span><strong>${remaining}</strong><small>días hábiles restantes · ${approved} aprobados</small></div>`;
   const mine = data.requests.filter(request => request.userId === currentUserId && (request.periodId || 1) === active.id);
-  $('#my-requests').innerHTML = mine.length ? mine.sort((a,b)=>b.id-a.id).map(request => { const [label,kind]=status(request); return `<article class="request"><div class="request-head"><strong>${dates(request.days)}</strong><span class="status ${kind}">${label}</span></div><small>${request.note ? esc(request.note) : ''}${request.rejectReason ? ` · Motivo: ${esc(request.rejectReason)}` : ''}</small></article>`; }).join('') : '<p class="empty">No hay solicitudes en este periodo.</p>';
+  $('#my-requests').innerHTML = mine.length ? mine.sort((a,b)=>b.id-a.id).map(request => { const [label,kind]=status(request); return `<article class="request"><div class="request-head"><strong>${dates(request.days)}</strong><span class="status ${kind}">${label}</span></div><small>${request.note ? esc(request.note) : ''}${request.rejectReason ? ` · Motivo: ${esc(request.rejectReason)}` : ''}</small>${cancellationMarkup(request)}</article>`; }).join('') : '<p class="empty">No hay solicitudes en este periodo.</p>';
 };
 
 function renderAdminCalendar(requests) {
-  const approved = requests.filter(request => status(request)[1] === 'approved');
+  const approved = requests.filter(request => occupiesVacationDays(request));
   $('#admin-calendar').innerHTML = approved.length
     ? `<div class="approved-days-list">${approved.map(request => {
       const person = data.users.find(item => item.id === request.userId);
@@ -108,7 +120,7 @@ function renderSuperApprovedReport() {
   const areas = data.areas;
   if (!areas.length) { report.innerHTML = '<h2>Vacaciones aprobadas</h2><p class="empty">Aún no hay áreas registradas.</p>'; return; }
   if (!areas.some(item => item.id === selectedSuperAreaId)) selectedSuperAreaId = areas[0].id;
-  const approved = data.requests.filter(request => status(request)[1] === 'approved' && request.areaId === selectedSuperAreaId);
+  const approved = data.requests.filter(request => occupiesVacationDays(request) && request.areaId === selectedSuperAreaId);
   const items = approved.length ? approved.map(request => {
     const person = data.users.find(item => item.id === request.userId);
     return `<article class="super-approved-item"><strong>${esc(readableName(person?.name))}</strong><span>${dates(request.days)}</span></article>`;

@@ -29,7 +29,7 @@ async function loadCloudData() {
     areas: (areaResult.data || []).map(item => ({ id: item.id, name: item.name })),
     holidays: (holidayResult.data || []).map(item => item.holiday_date),
     users: (profilesResult.data || [profile]).filter(item => item.active !== false).map(item => ({ id: item.id, name: item.full_name, email: item.email || (item.id === profile.id ? sessionData.user.email : ''), role: item.role === 'superuser' ? 'super' : item.role, areaId: item.area_id })),
-    requests: (requestResult.data || []).map(item => ({ id: item.id, userId: item.employee_id, areaId: item.area_id, periodId: item.period_id, days: (item.request_days || []).map(day => day.vacation_date), note: item.note || '', decisions: { [item.reviewed_by || currentUserId]: item.status === 'approved' ? 'yes' : item.status === 'rejected' ? 'no' : 'pending' }, log: (item.approval_audit || []).map(audit => ({ adminName: 'Administrador', decision: audit.action === 'approved' ? 'yes' : 'no', date: audit.created_at.slice(0, 10) })), rejectReason: item.rejection_reason || '' }))
+    requests: (requestResult.data || []).map(item => ({ id: item.id, state: item.status, cancellationReason: item.cancellation_reason || '', userId: item.employee_id, areaId: item.area_id, periodId: item.period_id, days: (item.request_days || []).map(day => day.vacation_date), note: item.note || '', decisions: { [item.reviewed_by || currentUserId]: item.status === 'approved' ? 'yes' : item.status === 'rejected' ? 'no' : 'pending' }, log: (item.approval_audit || []).map(audit => ({ adminName: 'Administrador', decision: audit.action === 'approved' ? 'yes' : 'no', date: audit.created_at.slice(0, 10) })), rejectReason: item.rejection_reason || '' }))
   };
   currentUserId = id;
   selectedPeriod = data.periods[0]?.id || 1;
@@ -264,3 +264,31 @@ async function checkPortalAccess() {
 setInterval(checkPortalAccess, 15000);
 window.addEventListener('focus', checkPortalAccess);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkPortalAccess(); });
+
+// Cancelación: el servidor valida propiedad, estado y fecha en una operación atómica.
+let cancellationBusy = false;
+document.addEventListener('click', async event => {
+ const button = event.target.closest('#my-requests [data-cancel-request]');
+ if (!button) return;
+ event.preventDefault(); event.stopImmediatePropagation();
+ if (cancellationBusy || button.disabled) return;
+ const request = data.requests.find(item => String(item.id) === button.dataset.cancelRequest);
+ if (!request || !cancellationAction(request)) return alert('Esta solicitud ya no se puede cancelar desde colaborador.');
+ const reason = prompt('Motivo de cancelación (opcional):', '');
+ if (reason === null) return;
+ if (reason.trim().length > 1000) return alert('El motivo debe tener como máximo 1000 caracteres.');
+ const approved = status(request)[1] === 'approved';
+ if (!confirm(approved ? '¿Solicitar la cancelación de estas vacaciones? Los días seguirán descontados hasta que se autorice.' : '¿Cancelar esta solicitud? Se conservará en tu historial.')) return;
+ if (!cancellationAction(request)) return alert('Esta solicitud ya no se puede cancelar desde colaborador.');
+ cancellationBusy = true; button.disabled = true;
+ let saved = false;
+ try {
+  const { error } = await cloud.rpc('cancel_vacation_request', {p_request_id: request.id, p_reason: reason.trim() || null, p_expected_status: status(request)[1]});
+  if (error) throw error;
+  saved = true;
+  await showCloudSession();
+  alert(approved ? 'Cancelación solicitada. Está pendiente de autorización.' : 'Solicitud cancelada. Se conservó el historial.');
+ } catch (error) {
+  alert(saved ? 'La cancelación se guardó, pero no se pudo actualizar la pantalla. Recarga para consultar el resultado.' : ['PGRST202','42883'].includes(error.code) ? 'La función de cancelación aún no está habilitada en el servidor. No se modificó la solicitud.' : error.message || 'No se pudo confirmar la cancelación. Recarga para consultar el estado antes de intentarlo de nuevo.');
+ } finally { cancellationBusy = false; button.disabled = false; }
+}, true);

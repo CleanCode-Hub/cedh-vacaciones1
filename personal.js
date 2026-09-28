@@ -29,7 +29,7 @@ function udiScopedPeople(){return udi.people.filter(p=>udi.area==='all'||(udi.ar
 function udiMetrics(people){
   const ids=new Set(people.map(p=>p.profile_id).filter(Boolean));
   const requests=udi.requests.filter(r=>ids.has(r.employee_id)&&r.request_days.some(d=>d.vacation_date>=udi.from&&d.vacation_date<=udi.to));
-  const approved=new Set(requests.filter(r=>r.status==='approved').flatMap(r=>r.request_days.filter(d=>d.vacation_date>=udi.from&&d.vacation_date<=udi.to).map(d=>r.employee_id+':'+d.vacation_date)));
+  const approved=new Set(requests.filter(r=>['approved','cancellation_pending'].includes(r.status)).flatMap(r=>r.request_days.filter(d=>d.vacation_date>=udi.from&&d.vacation_date<=udi.to).map(d=>r.employee_id+':'+d.vacation_date)));
   return {total:people.length,unassigned:people.filter(p=>!p.schedule).length,flex:people.filter(p=>p.schedule==='flex').length,exempt:people.filter(p=>p.schedule==='exempt').length,days:approved.size,pending:requests.filter(r=>r.status==='pending').length};
 }
 function udiBars(items,total){return items.map(([label,count])=>`<div class="udi-bar-row"><div><span>${esc(label)}</span><strong>${count}</strong></div><div class="udi-track"><i style="width:${total?Math.round(count/total*100):0}%"></i></div></div>`).join('');}

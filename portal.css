@@ -173,3 +173,5 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 #attendance-summary[hidden]{display:none!important}.attendance-totals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}.attendance-totals .metric:last-child{background:#eaf4f7;border-color:#99c2d3}.attendance-rules{font-size:.82rem;color:var(--muted)}.attendance-rules summary{cursor:pointer;padding:10px 0;font-weight:650}.attendance-rules p{margin-top:10px}
+
+.status.cancelled{background:#edf0f2;color:#48535b}.status.cancellation_pending{background:#fff0cf;color:#704d00}
