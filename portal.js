@@ -47,7 +47,7 @@ function renderVacationCalendar () {
 function renderPeopleAndPeriods () {
   $('#p1-days').value=data.periods[0].days; $('#p1-start').value=data.periods[0].start; $('#p1-end').value=data.periods[0].end; $('#p2-days').value=data.periods[1].days; $('#p2-start').value=data.periods[1].start; $('#p2-end').value=data.periods[1].end;
   $('#policy-summary').textContent=`Periodo 1: ${data.periods[0].days} días. Periodo 2: ${data.periods[1].days} días.`;
-  const opts=data.areas.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join(''); $('#new-user-area').innerHTML=`<option value="">Sin área</option>${opts}`; $('#areas-list').innerHTML=data.areas.map(a=>`<span class="area-chip">${esc(a.name)} · ${adminFor(a.id)?.name||'sin administrador'}</span>`).join('')||'<p class="empty">Aún no hay áreas.</p>'; $('#users-list').innerHTML=data.users.map(person=>`<tr><td>${esc(person.name)}</td><td>${esc(person.email)}</td><td>${role(person.role)}</td><td>${esc(area(person.areaId)?.name||'Sin área')}</td><td>${person.id!==currentUserId&&person.role!=='super'&&person.role!=='superuser'?`<button class="secondary danger" data-delete="${person.id}">Desactivar</button>`:''}</td></tr>`).join('');
+  const opts=data.areas.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join(''); $('#new-user-area').innerHTML=`<option value="">Sin área</option>${opts}`; $('#areas-list').innerHTML=data.areas.map(a=>`<span class="area-chip">${esc(a.name)} · ${esc(adminFor(a.id)?.name||'sin administrador')} <button type="button" class="secondary danger" data-remove-area="${esc(a.id)}">Quitar área</button></span>`).join('')||'<p class="empty">Aún no hay áreas.</p>'; $('#users-list').innerHTML=data.users.map(person=>`<tr><td>${esc(person.name)}</td><td>${esc(person.email)}</td><td>${role(person.role)}</td><td>${esc(area(person.areaId)?.name||'Sin área')}</td><td>${person.id!==currentUserId&&person.role!=='super'&&person.role!=='superuser'?`<button class="secondary danger" data-delete="${person.id}">Desactivar</button>`:''}</td></tr>`).join('');
 };
 
 function holidayCalendar(){const y=holidayMonth.getFullYear(),m=holidayMonth.getMonth(),first=new Date(y,m,1),offset=(first.getDay()+6)%7,total=new Date(y,m+1,0).getDate();$('#holiday-month-label').textContent=new Intl.DateTimeFormat('es-MX',{month:'long',year:'numeric'}).format(first);let html=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(x=>`<div class="weekday">${x}</div>`).join('')+'<div class="day empty"></div>'.repeat(offset);for(let n=1;n<=total;n++){const date=new Date(y,m,n),d=isoDate(date),weekend=date.getDay()===0||date.getDay()===6,marked=data.holidays.includes(d);html+=`<button type="button" data-holiday="${d}" class="day ${marked?'holiday holiday-selected':''}" ${weekend?'disabled':''}>${n}</button>`}$('#holiday-calendar').innerHTML=html}
@@ -100,7 +100,7 @@ function adminView() {
   if (!people.some(person=>person.id===selectedEmployeeId)) selectedEmployeeId=people[0].id;
   $('#admin-tabs').innerHTML=people.map(person=>`<button type="button" data-employee="${person.id}" class="${person.id===selectedEmployeeId?'active':''}">${esc(readableName(person.name))}</button>`).join('');
   const allRequests=data.requests.filter(request=>people.some(person=>person.id===request.userId)), requests=allRequests.filter(request=>request.userId===selectedEmployeeId).sort((a,b)=>b.id-a.id);
-  $('#admin-list').innerHTML=requests.length?requests.map(request=>{const [label,kind]=status(request);const pending=kind==='pending';const rejection=request.rejectReason ? `<p class="history"><strong>Motivo del rechazo:</strong> ${esc(request.rejectReason)}</p>` : '';return `<article class="request"><div class="request-head"><strong>Días solicitados: ${dates(request.days)}</strong><span class="status ${kind}">${label}</span></div>${request.note?`<p>${esc(request.note)}</p>`:''}${pending?`<div class="actions"><button class="primary" data-vote="yes" data-request="${request.id}">Sí, aprobar</button><button class="secondary danger" data-vote="no" data-request="${request.id}">Rechazar</button></div>`:rejection}</article>`;}).join(''):'<p class="empty">Esta persona no tiene solicitudes.</p>';
+  $('#admin-list').innerHTML=requests.length?requests.map(request=>{const [label,kind]=status(request);const pending=kind==='pending';const rejection=request.rejectReason ? `<p class="history"><strong>Motivo del rechazo:</strong> ${esc(request.rejectReason)}</p>` : '';return `<article class="request"><div class="request-head"><strong>Días solicitados: ${dates(request.days)}</strong><span class="status ${kind}">${label}</span></div>${request.note?`<p>${esc(request.note)}</p>`:''}${pending?`<div class="actions"><button class="primary" data-vote="yes" data-request="${request.id}">Sí, aprobar</button><button class="secondary danger" data-vote="no" data-request="${request.id}">Rechazar</button></div>`:rejection}${adminCancellationMarkup(request)}</article>`;}).join(''):'<p class="empty">Esta persona no tiene solicitudes.</p>';
   renderAdminCalendar(requests);
 };
 
@@ -210,3 +210,14 @@ function renderAttendanceSummary() {
  document.getElementById('attendance-state').textContent = totals ? 'Retardos restantes en este mes: '+totals.remaining+'. No se trasladan al siguiente mes.' : 'Sin datos de asistencia para este mes. Conexión con BioTime pendiente; los guiones no significan cero incidencias.';
 }
 document.getElementById('attendance-month').addEventListener('change',renderAttendanceSummary);
+
+function adminCancellationAction(request, today = vacationToday()) {
+ const me=user();
+ if(me?.role !== 'admin' || !me.areaId || request.areaId !== me.areaId || !request.days.length || request.days.some(day=>!/^\d{4}-\d{2}-\d{2}$/.test(day)) || [...request.days].sort()[0] <= today) return null;
+ const kind=status(request)[1];
+ return kind==='cancellation_pending' ? 'Autorizar cancelación' : ['pending','approved'].includes(kind) ? 'Cancelar vacaciones' : null;
+}
+function adminCancellationMarkup(request) {
+ const label=adminCancellationAction(request);
+ return (request.cancellationReason ? '<p>Motivo de cancelación: '+esc(request.cancellationReason)+'</p>' : '')+(label ? '<div class="actions"><button type="button" class="secondary danger" data-admin-cancel="'+esc(request.id)+'">'+label+'</button></div>' : '');
+}
