@@ -1,4 +1,4 @@
-// Registro de personal UDI; BioTime se conectará en una etapa posterior.
+// Registro de personal UDI y consulta de asistencia mediante el servidor del portal.
 const UDI_SCHEDULES = {'08-16':'08:00–16:00','09-17':'09:00–17:00','10-18':'10:00–18:00',flex:'Flexible · 8 horas',exempt:'Sin horario · excepción'};
 const udi = {people:[],requests:[],error:'',area:'all',search:'',schedule:'all',page:1,tab:'dashboard',busy:false};
 const udiToday = () => new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -36,6 +36,7 @@ function udiBars(items,total){return items.map(([label,count])=>`<div class="udi
 function udiOptions(selected){return `<option value="">Por asignar</option>`+Object.entries(UDI_SCHEDULES).map(([id,label])=>`<option value="${id}" ${selected===id?'selected':''}>${label}</option>`).join('');}
 function udiAreaOptions(selected){return `<option value="">Sin área</option>`+data.areas.map(a=>`<option value="${esc(a.id)}" ${selected===a.id?'selected':''}>${esc(a.name)}</option>`).join('');}
 function renderUDI(){
+  if(udi.tab==='statistics')udi.tab='dashboard';
   let root=document.getElementById('udi-view');
   if(!root){root=document.createElement('section');root.id='udi-view';document.getElementById('super-view').after(root);}
   const allowed=['udi','super'].includes(user()?.role);
@@ -45,14 +46,14 @@ function renderUDI(){
   if(!allowed){root.innerHTML='';return;}
   if(udi.error){root.innerHTML=`<section class="card"><h2>UDI · Recursos Humanos</h2><p role="alert">${esc(udi.error)}</p><button type="button" class="secondary" data-udi-retry>Volver a intentar</button></section>`;return;}
   const people=udiScopedPeople(),m=udiMetrics(people);
-  root.innerHTML=`<div class="udi-hero"><div><p class="udi-eyebrow">GESTIÓN DE PERSONAL</p><h2>UDI · Recursos Humanos</h2><p>Personas, áreas y horarios en un mismo lugar.</p></div><div><span class="udi-status">BioTime pendiente de conexión</span><button type="button" class="secondary" disabled title="Disponible en una próxima etapa">Generar reporte · Próximamente</button></div></div>
-  <nav class="udi-nav" aria-label="Secciones UDI"><button type="button" data-udi-tab="dashboard" aria-pressed="${udi.tab==='dashboard'}">Dashboard</button><button type="button" data-udi-tab="people" aria-pressed="${udi.tab==='people'}">Personas por área</button><button type="button" data-udi-tab="statistics" aria-pressed="${udi.tab==='statistics'}">Estadísticas</button></nav>
+  root.innerHTML=`<div class="udi-hero"><div><p class="udi-eyebrow">GESTIÓN DE PERSONAL</p><h2>UDI · Recursos Humanos</h2><p>Personas, áreas y horarios en un mismo lugar.</p></div><div><span class="udi-status">BioTime · Consulta por persona</span><button type="button" class="secondary" data-udi-report>Generar reporte PDF</button></div></div>
+  <nav class="udi-nav" aria-label="Secciones UDI"><button type="button" data-udi-tab="dashboard" aria-pressed="${udi.tab==='dashboard'}">Dashboard</button><button type="button" data-udi-tab="people" aria-pressed="${udi.tab==='people'}">Asignación de horarios</button></nav>
   <div class="udi-area-tabs" ${udi.tab==='statistics'?'hidden':''} aria-label="Filtrar por área">${[['all','Todas las áreas'],['none','Sin área'],...data.areas.map(a=>[a.id,a.name])].map(([id,name])=>`<button type="button" data-udi-area="${esc(id)}" aria-pressed="${udi.area===id}">${esc(name)} <b>${udi.people.filter(p=>id==='all'||(id==='none'?!p.area_id:p.area_id===id)).length}</b></button>`).join('')}</div>
   ${udi.tab==='statistics'?'':udi.tab==='dashboard'?`<div class="udi-metrics">${[['Personas activas',m.total],['Horario por asignar',m.unassigned],['Horario flexible',m.flex],['Excepciones',m.exempt]].map(([label,n])=>`<article class="card"><span>${label}</span><strong>${n}</strong></article>`).join('')}</div>
   <div class="udi-two"><section class="card"><h3>Distribución de horarios</h3>${udiBars([...Object.entries(UDI_SCHEDULES).map(([id,label])=>[label,people.filter(p=>p.schedule===id).length]),['Por asignar',m.unassigned]],m.total)}</section><section class="card"><h3>Personal por área</h3>${udiBars([...data.areas.map(a=>[a.name,people.filter(p=>p.area_id===a.id).length]),['Sin área',people.filter(p=>!p.area_id).length]].filter(([,n])=>n),m.total)||'<p class="empty">Aún no hay personas registradas.</p>'}</section></div>
-  <section class="card udi-vacations"><div class="udi-heading"><div><h3>Vacaciones registradas</h3><p>Personas del área seleccionada vinculadas al portal.</p></div><div class="udi-dates"><label>Desde<input type="date" id="udi-from" value="${udi.from}" max="${udi.to}"></label><label>Hasta<input type="date" id="udi-to" value="${udi.to}" min="${udi.from}"></label></div></div><div class="udi-metrics"><article><span>Días-persona aprobados en el rango</span><strong>${m.days}</strong></article><article><span>Solicitudes pendientes en el rango</span><strong>${m.pending}</strong></article></div><p class="notice">El rango filtra los días solicitados, no la fecha de aprobación. Personal y horarios muestran la asignación actual.</p></section><section class="udi-wait"><strong>Asistencia · Aún sin datos de BioTime</strong><p>Cumplimiento, retardos, faltas y salidas anticipadas estarán disponibles al conectar las checadas. Las excepciones no tendrán evaluación de horario.</p></section>`:
-  `<section class="card"><div class="udi-heading"><div><h3>${esc(udi.area==='all'?'Directorio de personal':udi.area==='none'?'Personas sin área':udiAreaName(udi.area))}</h3><p>Asigna un área y horario a cada persona.</p></div><div class="actions"><button type="button" class="secondary" data-udi-new-area>Nueva área</button><button type="button" class="primary" data-udi-add>Agregar persona</button></div></div><div class="udi-filters"><label>Buscar persona o ID BioTime<input type="search" id="udi-search" value="${esc(udi.search)}" placeholder="Escribe un nombre o identificador"></label><label>Horario<select id="udi-schedule-filter"><option value="all">Todos los horarios</option>${udiOptions(udi.schedule)}</select></label></div><div id="udi-directory"></div></section>`}
-  <p class="udi-footnote">Los registros manuales no crean cuentas de acceso. El ID BioTime se vinculará cuando esté disponible la integración.</p>
+  <section class="card udi-vacations"><div class="udi-heading"><div><h3>Vacaciones registradas</h3><p>Personas del área seleccionada vinculadas al portal.</p></div><div class="udi-dates"><label>Desde<input type="date" id="udi-from" value="${udi.from}" max="${udi.to}"></label><label>Hasta<input type="date" id="udi-to" value="${udi.to}" min="${udi.from}"></label></div></div><div class="udi-metrics"><article><span>Días-persona aprobados en el rango</span><strong>${m.days}</strong></article><article><span>Solicitudes pendientes en el rango</span><strong>${m.pending}</strong></article></div><p class="notice">El rango filtra los días solicitados, no la fecha de aprobación. Personal y horarios muestran la asignación actual.</p></section>${renderBioTimePanel()}`:
+  `<section class="card"><div class="udi-heading"><div><h3>${esc(udi.area==='all'?'Directorio de personal':udi.area==='none'?'Personas sin área':udiAreaName(udi.area))}</h3><p>Asigna un área y horario a cada persona y registra su ID de BioTime.</p></div><div class="actions"><button type="button" class="secondary" data-udi-new-area>Nueva área</button><button type="button" class="primary" data-udi-add>Agregar persona</button></div></div><div class="udi-filters"><label>Buscar persona o ID BioTime<input type="search" id="udi-search" value="${esc(udi.search)}" placeholder="Escribe un nombre o identificador"></label><label>Horario<select id="udi-schedule-filter"><option value="all">Todos los horarios</option>${udiOptions(udi.schedule)}</select></label></div><div id="udi-directory"></div></section>`}
+  <p class="udi-footnote">Los registros manuales no crean cuentas de acceso. El ID BioTime identifica a la persona en la consulta de checadas.</p>
   <dialog id="udi-dialog" aria-labelledby="udi-dialog-title"></dialog>`;
   if(udi.tab==='statistics' && user()?.role==='udi'){statsRoot.hidden=false;renderVacationStatistics();}
   if(udi.tab==='people'){document.getElementById('udi-schedule-filter').value=udi.schedule;renderUDIDirectory();}
@@ -105,15 +106,7 @@ document.addEventListener('submit',async event=>{
 const renderBeforeUDI=render;
 render=function(){renderBeforeUDI();renderUDI();};
 document.addEventListener('click',event=>{if(!event.target.closest('#logout'))return;udi.people=[];udi.requests=[];udi.loadedAt=null;udi.area='all';udi.search='';udi.schedule='all';udi.page=1;udi.tab='dashboard';document.getElementById('udi-view')?.classList.add('hidden');},true);
-const prepareUDI=document.createElement('button');
-prepareUDI.type='button';prepareUDI.className='secondary';prepareUDI.textContent='Preparar cuenta UDI';
-document.getElementById('add-user').before(prepareUDI);
-prepareUDI.addEventListener('click',()=>{
-  const form=document.getElementById('add-user');
-  form.elements.name.value='UDI';form.elements.email.value='claudia.quiroga@cedhnl.org.mx';
-  form.elements.role.value='udi';form.elements.area.value='';
-  form.elements.password.focus();
-});
+
 
 ;
 // Navegación visual: conserva los formularios y sus manejadores originales.
@@ -125,6 +118,7 @@ prepareUDI.addEventListener('click',()=>{
     ['holidays', 'Días inhábiles', 'Administra los días no laborables del calendario.', '#holiday-calendar'],
     ['approved', 'Vacaciones aprobadas', 'Consulta las vacaciones autorizadas por área.', '#super-approved-report'],
     ['statistics', 'Estadísticas', 'Analiza solicitudes, días y cancelaciones por área y fecha.', '#statistics-view'],
+    ['presidency', 'Presidencia', 'Revisa y resuelve las solicitudes de justificación de faltas.', '#presidency-view'],
     ['rh', 'Recursos Humanos', 'Consulta el dashboard y organiza al personal con UDI.', '#udi-view']
   ];
   let selected = 'people', owner = null, peopleQuery = '';
@@ -176,6 +170,9 @@ prepareUDI.addEventListener('click',()=>{
     const isSuper = user()?.role === 'super';
     let shell = document.getElementById('super-navigation');
     const rh = document.getElementById('udi-view');
+    let presidencyRoot=document.getElementById('presidency-view');
+    if(!presidencyRoot){presidencyRoot=document.createElement('section');presidencyRoot.id='presidency-view';presidencyRoot.className='card';document.getElementById('super-view').after(presidencyRoot);}
+    presidencyRoot.hidden=true;
     if (!isSuper) {
       if (shell) shell.hidden = true;
       if (rh) { rh.hidden = false; rh.removeAttribute('role'); rh.removeAttribute('aria-labelledby'); }
@@ -203,14 +200,15 @@ prepareUDI.addEventListener('click',()=>{
       });
     }
     shell.hidden = false;
-    document.getElementById('super-view').classList.toggle('hidden', ['rh','statistics'].includes(selected));
+    document.getElementById('super-view').classList.toggle('hidden', ['rh','statistics','presidency'].includes(selected));
     for (const [id,,description,selector] of sections) {
       const target = document.querySelector(selector);
-      const panel = ['rh','approved','statistics'].includes(id) ? target : target?.closest('section');
+      const panel = ['rh','approved','statistics','presidency'].includes(id) ? target : target?.closest('section');
       const active = selected === id;
       if(id==='statistics'&&active)renderVacationStatistics();
+      if(id==='presidency'&&active)window.renderPresidencia?.(true);
       if (panel) {
-        if (!['rh','statistics'].includes(id)) panel.id = 'super-panel-'+id;
+        if (!['rh','statistics','presidency'].includes(id)) panel.id = 'super-panel-'+id;
         // El reporte conserva su ID porque su renderizador lo utiliza.
         if (id === 'approved') panel.id = 'super-approved-report';
         panel.hidden = !active;

@@ -27,7 +27,7 @@ Deno.serve(async (request) => {
   if (authError || !requester) return reply({ error: 'Sesión no válida.' }, 401);
 
   const { data: requesterProfile } = await adminClient.from('profiles').select('role,active').eq('id', requester.id).single();
-  if (requesterProfile?.role !== 'superuser' || requesterProfile.active === false) return reply({ error: 'Solo el superusuario puede administrar personas.' }, 403);
+  if (requesterProfile?.role !== 'superuser' || requesterProfile.active !== true) return reply({ error: 'Solo el superusuario puede administrar personas.' }, 403);
 
   const input = await request.json().catch(() => ({}));
   const action = input.action;

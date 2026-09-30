@@ -108,6 +108,7 @@ $('#admin-tabs').addEventListener('click', event => { const button=event.target.
 
 
 let selectedSuperAreaId = null;
+let selectedSuperPeriodId = null;
 function renderSuperApprovedReport() {
   let report = $('#super-approved-report');
   if (!report) {
@@ -118,14 +119,16 @@ function renderSuperApprovedReport() {
     $('#super-view').append(report);
   }
   const areas = data.areas;
+  const periods = data.periods.slice(0,2);
+  if (!periods.some(p => String(p.id) === String(selectedSuperPeriodId))) selectedSuperPeriodId = periods[0]?.id ?? null;
   if (!areas.length) { report.innerHTML = '<h2>Vacaciones aprobadas</h2><p class="empty">Aún no hay áreas registradas.</p>'; return; }
   if (!areas.some(item => item.id === selectedSuperAreaId)) selectedSuperAreaId = areas[0].id;
-  const approved = data.requests.filter(request => occupiesVacationDays(request) && request.areaId === selectedSuperAreaId);
+  const approved = data.requests.filter(request => occupiesVacationDays(request) && request.areaId === selectedSuperAreaId && selectedSuperPeriodId !== null && String(request.periodId ?? periods[0]?.id) === String(selectedSuperPeriodId));
   const items = approved.length ? approved.map(request => {
     const person = data.users.find(item => item.id === request.userId);
     return `<article class="super-approved-item"><strong>${esc(readableName(person?.name))}</strong><span>${dates(request.days)}</span></article>`;
-  }).join('') : '<p class="empty">No hay días aprobados en esta área.</p>';
-  report.innerHTML = `<h2>Vacaciones aprobadas</h2><p>Consulta informativa por área y persona. Este registro no modifica solicitudes.</p><div class="admin-tabs super-area-tabs">${areas.map(item => `<button type="button" data-super-area="${item.id}" class="${item.id === selectedSuperAreaId ? 'active' : ''}">${esc(item.name)}</button>`).join('')}</div><div class="super-approved-list">${items}</div>`;
+  }).join('') : '<p class="empty">No hay vacaciones aprobadas en esta área para el periodo seleccionado.</p>';
+  report.innerHTML = `<h2>Vacaciones aprobadas</h2><p>Consulta informativa por área y persona. Este registro no modifica solicitudes.</p><div class="admin-tabs super-period-tabs" role="tablist" aria-label="Periodo de vacaciones aprobadas">${periods.map((p,i)=>`<button type="button" role="tab" id="approved-period-${i}" data-super-period="${esc(p.id)}" aria-controls="approved-period-content" aria-selected="${String(p.id)===String(selectedSuperPeriodId)}" tabindex="${String(p.id)===String(selectedSuperPeriodId)?0:-1}" class="${String(p.id)===String(selectedSuperPeriodId)?'active':''}">${i===0?'Primer periodo':'Segundo periodo'}</button>`).join('')}</div><div id="approved-period-content" role="tabpanel" aria-labelledby="approved-period-${Math.max(0,periods.findIndex(p=>String(p.id)===String(selectedSuperPeriodId)))}"><div class="admin-tabs super-area-tabs">${areas.map(item => `<button type="button" data-super-area="${item.id}" class="${item.id === selectedSuperAreaId ? 'active' : ''}">${esc(item.name)}</button>`).join('')}</div><div class="super-approved-list">${items}</div></div>`;
 }
 
 
@@ -150,6 +153,7 @@ function render() {
  if(me.role==='employee')calendar();
  if(me.role==='admin')adminView();
  if(me.role==='super')superView();
+ syncEmployeeTabs();
 }
 // Navegación local. Las escrituras de cuentas y vacaciones viven en acceso.js.
 $('#previous').onclick=()=>{month.setMonth(month.getMonth()-1);calendar()};
@@ -200,14 +204,18 @@ function renderAttendanceSummary() {
  root.hidden = user()?.role !== 'employee'; if (root.hidden) return;
  const picker = document.getElementById('attendance-month');
  if (!picker.value) picker.value = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Monterrey',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()).slice(0,7);
- // Se habilitará al integrar una fuente autorizada y completa por mes.
+ if(window.loadMyAttendance)window.loadMyAttendance(picker.value);
+ const attendanceState=data.myAttendanceState?.[picker.value];
  const records = data.attendanceByMonth?.[picker.value];
  let totals = null;
  try { totals = monthlyAttendanceTotals(records, currentUserId, picker.value); }
  catch (_) { /* Datos inconsistentes: no presentar un total potencialmente incorrecto. */ }
  const labels = [['late','Retardos'],['direct','Faltas directas'],['equivalent','Faltas por retardos'],['total','Total de faltas']];
  document.getElementById('attendance-totals').innerHTML = labels.map(([key,label]) => '<div class="metric"><span>'+label+'</span><strong>'+(totals ? totals[key] : '—')+'</strong></div>').join('');
- document.getElementById('attendance-state').textContent = totals ? 'Retardos restantes en este mes: '+totals.remaining+'. No se trasladan al siguiente mes.' : 'Sin datos de asistencia para este mes. Conexión con BioTime pendiente; los guiones no significan cero incidencias.';
+ document.getElementById('attendance-state').textContent = attendanceState?.loading ? 'Consultando tu asistencia del mes…' : attendanceState?.error || (totals ? 'Retardos restantes en este mes: '+totals.remaining+'. No se trasladan al siguiente mes. '+(attendanceState?.note||'') : 'Sin datos de asistencia para este mes. Los guiones no significan cero incidencias.');
+ const refresh=document.getElementById('attendance-refresh');if(refresh)refresh.disabled=!!attendanceState?.loading;
+ renderEmployeeAttendanceCalendar(picker.value, attendanceState?.error || attendanceState?.loading ? null : records);
+ syncEmployeeTabs();
 }
 document.getElementById('attendance-month').addEventListener('change',renderAttendanceSummary);
 
@@ -221,3 +229,76 @@ function adminCancellationMarkup(request) {
  const label=adminCancellationAction(request);
  return (request.cancellationReason ? '<p>Motivo de cancelación: '+esc(request.cancellationReason)+'</p>' : '')+(label ? '<div class="actions"><button type="button" class="secondary danger" data-admin-cancel="'+esc(request.id)+'">'+label+'</button></div>' : '');
 }
+
+// Independent navigation and calendar for the collaborator's attendance.
+let employeeTab = 'vacation', employeeTabOwner = null;
+function syncEmployeeTabs() {
+ const employee=user()?.role==='employee';
+ if(employeeTabOwner!==currentUserId){employeeTab='vacation';employeeTabOwner=currentUserId;}
+ document.getElementById('employee-navigation').classList.toggle('hidden',!employee);
+ document.getElementById('employee-view').classList.toggle('hidden',!employee||employeeTab!=='vacation');
+ document.querySelector('.side').classList.toggle('hidden',!employee||employeeTab!=='vacation');
+ document.getElementById('attendance-summary').classList.toggle('hidden',!employee||employeeTab!=='attendance');
+ document.querySelector('.app-grid').classList.toggle('employee-attendance-wide',employee&&employeeTab==='attendance');
+ document.querySelectorAll('[data-employee-tab]').forEach(button=>{
+  const active=button.dataset.employeeTab===employeeTab;
+  button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;
+ });
+}
+function selectEmployeeTab(value) {
+ if(user()?.role!=='employee')return;
+ employeeTab=value;syncEmployeeTabs();
+ if(value==='attendance')renderAttendanceSummary();
+}
+document.getElementById('employee-navigation').addEventListener('click',event=>{
+ const button=event.target.closest('[data-employee-tab]');if(button)selectEmployeeTab(button.dataset.employeeTab);
+});
+document.getElementById('employee-navigation').addEventListener('keydown',event=>{
+ if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+ event.preventDefault();
+ const value=event.key==='Home'?'vacation':event.key==='End'?'attendance':employeeTab==='vacation'?'attendance':'vacation';
+ selectEmployeeTab(value);document.getElementById('employee-tab-'+value).focus();
+});
+const employeeAttendanceLabels={justified:'JUSTIFICADO',present:'Entrada cumplida',late:'Retardo',absence:'Falta',vacation:'Vacaciones',non_working:'Inhábil',exempt:'Excepción',unassigned:'Sin horario',review:'Por revisar',in_progress:'En curso',future:'Fecha futura'};
+function renderEmployeeAttendanceCalendar(selectedMonth,records) {
+ const root=document.getElementById('attendance-calendar');if(!root)return;
+ if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(selectedMonth)){root.innerHTML='';return;}
+ const [year,number]=selectedMonth.split('-').map(Number),first=new Date(year,number-1,1),total=new Date(year,number,0).getDate();
+ document.getElementById('attendance-month-label').textContent=new Intl.DateTimeFormat('es-MX',{month:'long',year:'numeric'}).format(first);
+ const byDate=new Map((records||[]).filter(r=>r.employeeId===currentUserId).map(r=>[r.date,r]));
+ let html=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(day=>`<div class="weekday">${day}</div>`).join('')+'<div class="day empty"></div>'.repeat((first.getDay()+6)%7);
+ for(let day=1;day<=total;day++){
+  const date=selectedMonth+'-'+String(day).padStart(2,'0'),record=byDate.get(date),status=record?.status,label=employeeAttendanceLabels[status]||'Sin datos';
+  const colored=['present','late','absence','vacation','justified'].includes(status);
+  html+=`<button type="button" class="attendance-day" data-attendance-day="${date}" aria-label="${date}: ${label}"><span>${day}</span>${colored?`<i class="attendance-dot ${status}" aria-hidden="true"></i>`:''}<small>${label}${record?.justification?.status==='pending'?'<br>En revisión':record?.justification?.status==='rejected'?'<br>Justificación rechazada':''}</small></button>`;
+ }
+ root.innerHTML=html;
+ document.getElementById('attendance-day-detail').textContent='';
+ window.renderJustificationActions?.(null);
+}
+document.getElementById('attendance-calendar').addEventListener('click',event=>{
+ const button=event.target.closest('[data-attendance-day]');if(!button)return;
+ const date=button.dataset.attendanceDay,record=data.attendanceByMonth?.[date.slice(0,7)]?.find(r=>r.date===date&&r.employeeId===currentUserId);
+ document.getElementById('attendance-day-detail').textContent=record?`${date} · ${employeeAttendanceLabels[record.status]||'Sin datos'} · Primera checada: ${record.first||'—'} · Última checada: ${record.last||'—'}${record.warnings?.length?' · '+record.warnings.map(w=>attendanceWarnings[w]||w).join(', '):''}`:`${date} · Sin datos de asistencia disponibles.`;
+ window.renderJustificationActions?.(record);
+});
+function moveAttendanceMonth(step){
+ const picker=document.getElementById('attendance-month');if(!/^\d{4}-\d{2}$/.test(picker.value))return;
+ const [year,number]=picker.value.split('-').map(Number),next=new Date(year,number-1+step,1);
+ picker.value=next.getFullYear()+'-'+String(next.getMonth()+1).padStart(2,'0');renderAttendanceSummary();
+}
+document.getElementById('attendance-previous').onclick=()=>moveAttendanceMonth(-1);
+document.getElementById('attendance-next').onclick=()=>moveAttendanceMonth(1);
+
+document.addEventListener('click',event=>{
+ const button=event.target.closest('[data-super-period]');if(!button)return;
+ selectedSuperPeriodId=button.dataset.superPeriod;renderSuperApprovedReport();
+ document.querySelector('[data-super-period][aria-selected="true"]')?.focus();
+});
+document.addEventListener('keydown',event=>{
+ const button=event.target.closest('[data-super-period]');
+ if(!button||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+ event.preventDefault();const periods=data.periods.slice(0,2),index=periods.findIndex(p=>String(p.id)===String(selectedSuperPeriodId));
+ const next=event.key==='Home'?0:event.key==='End'?periods.length-1:(index+(event.key==='ArrowRight'?1:-1)+periods.length)%periods.length;
+ selectedSuperPeriodId=periods[next].id;renderSuperApprovedReport();document.querySelector('[data-super-period][aria-selected="true"]')?.focus();
+});
